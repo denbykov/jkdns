@@ -2,14 +2,16 @@
 TARGET := jkdns
 CC := gcc
 CFLAGS := -Wall -Wextra -std=c11 -O2 -D_GNU_SOURCE
-INCLUDES := -Iinclude
+INCLUDES := -Isrc
 
 # === Source and Object Files ===
 SRCDIR := src
+IGNORE_SRC := $(SRCDIR)/main_old.c
 BUILDDIR := build
 TARGET_PATH := $(BUILDDIR)/$(TARGET)
 INSTALLDIR := debug
-SRC := $(wildcard $(SRCDIR)/*.c)
+IGNORE_SRC := $(SRCDIR)/main_old.c
+SRC := $(filter-out $(IGNORE_SRC), $(wildcard $(SRCDIR)/*.c))
 OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRC))
 
 # === Default Target ===
@@ -24,9 +26,11 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # === Install ===
+$(INSTALLDIR)/$(TARGET): $(TARGET_PATH) | $(INSTALLDIR)
+	cp $< $@
+
 .PHONY: install
-install: | $(INSTALLDIR)
-	cp $(TARGET_PATH) $(INSTALLDIR)
+install: $(INSTALLDIR)/$(TARGET)
 
 # === Create Build Directory ===
 $(BUILDDIR):

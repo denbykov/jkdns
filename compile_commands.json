@@ -1,0 +1,7 @@
+[
+    {
+        "command": "cc -c -Wall -Wextra -std=c11 -O2 -D_GNU_SOURCE -Isrc -o build/main.o src/main.c",
+        "directory": "/home/denbykov/workspace/jkdns",
+        "file": "/home/denbykov/workspace/jkdns/src/main.c"
+    }
+]
