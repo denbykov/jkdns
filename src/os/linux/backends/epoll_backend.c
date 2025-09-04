@@ -32,7 +32,7 @@ ev_backend_t epoll_backend = {
 };
 
 static int64_t epoll_init() {
-    event_list = malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+    event_list = calloc(EPOLL_MAX_EVENTS, sizeof(struct epoll_event));
     if (event_list == NULL) {
         perror("epoll_init.allocate_event_list");
         return -1;

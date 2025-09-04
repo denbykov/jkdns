@@ -4,7 +4,7 @@
 
 #include "decl.h"
 
-typedef void (*event_handler_pt)(struct event_s* ev);
+typedef void (*event_handler_pt)(event_t* ev);
 
 enum event_owner_tag {
     EV_OWNER_LISTENER,

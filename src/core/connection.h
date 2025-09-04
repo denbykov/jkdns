@@ -3,7 +3,7 @@
 #include "decl.h"
 
 struct connection_s {
-    uint64_t fd;
+    int64_t fd;
 
     event_t *read;
     event_t *write;
