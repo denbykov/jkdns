@@ -6,12 +6,16 @@ INCLUDES := -Isrc
 
 # === Source and Object Files ===
 SRCDIR := src
-IGNORE_SRC := $(SRCDIR)/main_old.c
 BUILDDIR := build
-TARGET_PATH := $(BUILDDIR)/$(TARGET)
 INSTALLDIR := debug
+TARGET_PATH := $(BUILDDIR)/$(TARGET)
+
 IGNORE_SRC := $(SRCDIR)/main_old.c
-SRC := $(filter-out $(IGNORE_SRC), $(wildcard $(SRCDIR)/*.c))
+
+# Recursive source search
+SRC := $(filter-out $(IGNORE_SRC), $(shell find $(SRCDIR) -name '*.c'))
+
+# Map src/.../*.c -> build/.../*.o
 OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRC))
 
 # === Default Target ===
@@ -23,6 +27,7 @@ $(TARGET_PATH): $(OBJ)
 
 # === Compile ===
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # === Install ===

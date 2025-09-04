@@ -2,19 +2,14 @@
 
 #include "decl.h"
 
-#define add_event       event_actions.add
-#define del_event       event_actions.del
-#define process_events  event_actions.process
-
-typedef struct {
-    int64_t (*add)(event_t* ev);
-    int64_t (*del)(event_t* ev);
-
-    int64_t (*process)();
-} event_actions_t;
-
 struct ev_backend_s {
-    char* name;
+    const char* name;
 
-    event_actions_t actions;
+    int64_t (*init)();
+    int64_t (*shutdown)();
+
+    int64_t (*add_event)(event_t* ev);
+    int64_t (*del_event)(event_t* ev);
+
+    int64_t (*process_events)();
 };
