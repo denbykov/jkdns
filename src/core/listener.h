@@ -15,3 +15,4 @@ struct listener_s {
 
 listener_t* make_listener();
 void release_listener(listener_t* l);
+void accept_handler(event_t* ev);

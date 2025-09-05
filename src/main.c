@@ -8,13 +8,8 @@
 
 extern ev_backend_t epoll_backend;
 
-static void accept_handler(event_t* ev) {
-    (void)ev;
-    printf("Handling new connection attempt\n");
-}
-
 int main() {
-    ev_backend_t* ev_backend = &epoll_backend;
+    ev_backend = &epoll_backend;
 
     if(ev_backend->init() == -1) {
         return -1;

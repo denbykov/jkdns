@@ -13,7 +13,6 @@
 #define EPOLL_MAX_EVENTS 512
 
 static struct epoll_event* event_list;
-static struct epoll_event event;
 static int epoll_fd = -1;
 
 static int64_t epoll_init();
@@ -61,6 +60,7 @@ static int64_t epoll_shutdown() {
 
 static int64_t epoll_add_event(event_t* ev) {
     int64_t fd = 0;
+    struct epoll_event event;
 
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;

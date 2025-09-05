@@ -1,7 +1,7 @@
 # === Project Settings ===
 TARGET := jkdns
 CC := gcc
-CFLAGS := -Wall -Wextra -std=c11 -O2 -D_GNU_SOURCE
+CFLAGS := -Wall -Wextra -std=c11 -D_GNU_SOURCE -g
 INCLUDES := -Isrc
 
 # === Source and Object Files ===

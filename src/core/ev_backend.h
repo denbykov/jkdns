@@ -13,3 +13,5 @@ struct ev_backend_s {
 
     int64_t (*process_events)();
 };
+
+extern ev_backend_t* ev_backend;

@@ -1,6 +1,11 @@
+#include <asm-generic/errno-base.h>
+#include <asm-generic/errno.h>
 #include <core/decl.h>
 #include <core/listener.h>
+#include <core/event.h>
+#include <session/tcp.h>
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +13,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#include <sys/socket.h>
 
 #define PORT "9034"
 #define LISTEN_QUEUE 10
@@ -103,5 +110,53 @@ void release_listener(listener_t *l) {
         }
 
         free(l);
+    }
+}
+
+void accept_handler(event_t *ev) {
+    int fd = -1;
+
+    if (ev->owner.ptr == NULL) {
+        fprintf(stderr, "accept_handler: event owner is NULL\n"); // NOLINT
+        exit(1);
+    }
+
+    switch (ev->owner.tag) {
+        case EV_OWNER_LISTENER:
+            fd = ((listener_t*)ev->owner.ptr)->fd;
+            break;
+        default:
+            fprintf(stderr, "accept_handler: unexpected event owner\n"); // NOLINT
+            exit(1);
+    }
+    
+    for(;;) {
+        struct sockaddr_storage addr;
+        socklen_t addrlen = sizeof(struct sockaddr_storage);
+
+        int conn_fd = accept(fd, (struct sockaddr*)&addr, &addrlen);
+
+        if (conn_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            break;
+        }
+
+        if (conn_fd == -1) {
+            perror("accept_handler.accept");
+            exit(1);
+        }
+
+        int flags = fcntl(conn_fd, F_GETFL, 0);
+        if (flags == -1) {
+            perror("accept_handler.fcntl_get_flags");
+            exit(1);
+        };
+        
+        flags |= O_NONBLOCK;
+        if (fcntl(conn_fd, F_SETFL, flags) == -1) {
+            perror("accept_handler.fcntl_set_non_blocking");
+            exit(1);
+        }
+
+        handle_new_connection(conn_fd);
     }
 }

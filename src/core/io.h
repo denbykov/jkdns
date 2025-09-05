@@ -4,6 +4,5 @@
 
 #include "decl.h"
 
-typedef ssize_t (*recv_pt)(connection_t *c, u_char *buf, size_t size);
-typedef ssize_t (*send_pt)(connection_t *c, u_char *buf, size_t size);
- 
+ssize_t recv_buf(connection_t *conn, buffer_t* buf);
+ssize_t send_buf(connection_t *conn, buffer_t* buf);
