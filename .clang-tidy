@@ -1,0 +1,6 @@
+Checks: >
+  -*,clang-analyzer-*,bugprone-*,performance-*
+
+CheckOptions:
+  - key:           clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+    value:         false
