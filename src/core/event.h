@@ -7,6 +7,7 @@
 typedef void (*event_handler_pt)(event_t* ev);
 
 enum event_owner_tag {
+    EV_OWNER_NONE,
     EV_OWNER_LISTENER,
     EV_OWNER_CONNECTION
 };
@@ -20,9 +21,11 @@ struct event_s {
     event_owner_t owner;
 
     uint32_t write:1;
-    // uint32_t accept:1;
+    uint32_t enabled:1;
 
     event_handler_pt handler;
 
     // ToDo: consider SMP optimization
 };
+
+void init_event(event_t *ev);

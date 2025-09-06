@@ -11,6 +11,9 @@ struct ev_backend_s {
     int64_t (*add_event)(event_t* ev);
     int64_t (*del_event)(event_t* ev);
 
+    int64_t (*disable_event)(event_t* ev);
+    int64_t (*enable_event)(event_t* ev);
+
     int64_t (*process_events)();
 };
 

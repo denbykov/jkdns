@@ -34,13 +34,13 @@ listener_t* make_listener() {
     int rv = 0;
     int fd = 0;
 
-    memset(&hints, 0, sizeof(hints)); // NOLINT
+    memset(&hints, 0, sizeof(hints)); //NOLINT
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
-        fprintf(stderr, "selectserver: %s\n", gai_strerror(rv)); // NOLINT
+    if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) { //NOLINT
+        fprintf(stderr, "selectserver: %s\n", gai_strerror(rv)); //NOLINT
         l->error = true;
         return l;
     }
@@ -69,7 +69,7 @@ listener_t* make_listener() {
     }
 
     if (p == NULL) {
-        fprintf(stderr, "selectserver: failed to bind\n"); // NOLINT
+        fprintf(stderr, "selectserver: failed to bind\n"); //NOLINT
         l->error = true;
         return l;
     }
@@ -106,7 +106,7 @@ listener_t* make_listener() {
 void release_listener(listener_t *l) {
     if (l != NULL) {
         if (l->fd != -1) {
-            close(l->fd);
+            close(l->fd); //NOLINT
         }
 
         free(l);
@@ -117,16 +117,16 @@ void accept_handler(event_t *ev) {
     int fd = -1;
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "accept_handler: event owner is NULL\n"); // NOLINT
+        fprintf(stderr, "accept_handler: event owner is NULL\n"); //NOLINT
         exit(1);
     }
 
     switch (ev->owner.tag) {
         case EV_OWNER_LISTENER:
-            fd = ((listener_t*)ev->owner.ptr)->fd;
+            fd = ((listener_t*)ev->owner.ptr)->fd; //NOLINT
             break;
         default:
-            fprintf(stderr, "accept_handler: unexpected event owner\n"); // NOLINT
+            fprintf(stderr, "accept_handler: unexpected event owner\n"); //NOLINT
             exit(1);
     }
     

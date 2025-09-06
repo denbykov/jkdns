@@ -22,6 +22,7 @@ int main() {
     }
 
     event_t ev;
+    init_event(&ev);
     ev.owner.ptr = l;
     ev.owner.tag = EV_OWNER_LISTENER;
     ev.write = false;

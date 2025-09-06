@@ -8,27 +8,23 @@
 #include <errno.h>
 
 #include <sys/socket.h>
+#include <unistd.h>
 
-ssize_t recv_buf(connection_t *conn, buffer_t* buf) {
+ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     if (conn == NULL) {
         fprintf(stderr, "recv_buf: connection is NULL\n"); //NOLINT
         exit(1);
     }
 
     if (buf == NULL) {
-        fprintf(stderr, "recv_buf: buffer is NULL\n"); //NOLINT
+        fprintf(stderr, "recv_buf: buf is NULL\n"); //NOLINT
         exit(1);
     }
 
-    if (buf->data == NULL) {
-        fprintf(stderr, "recv_buf: buffer has no space allocated\n"); //NOLINT
-        exit(1);
-    }
+    int fd = conn->fd; //NOLINT
 
-    int fd = conn->fd;
-
-    uint8_t *pos = buf->data + buf->taken * sizeof(*buf->data);
-    size_t space_left = buf->capacity - buf->taken;
+    uint8_t *pos = buf;
+    size_t space_left = count;
     ssize_t read = 0;
     
     for (;;) {
@@ -38,6 +34,10 @@ ssize_t recv_buf(connection_t *conn, buffer_t* buf) {
         }
 
         ssize_t n = recv(fd, pos, space_left, 0);
+
+        if (n == 0) {
+            return 0;
+        }
 
         if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             break;
@@ -49,19 +49,49 @@ ssize_t recv_buf(connection_t *conn, buffer_t* buf) {
         }
 
         read += n;
-        buf->taken += n;
         space_left -= n;
-        pos += n * sizeof(*buf->data);
+        pos += n * sizeof(*buf);
     }
 
     return read;
 }
 
-ssize_t send_buf(connection_t *conn, buffer_t* buf) {
-    (void)conn;
-    (void)buf;
+ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
+    if (conn == NULL) {
+        fprintf(stderr, "send_buf: connection is NULL\n"); //NOLINT
+        exit(1);
+    }
 
+    if (buf == NULL) {
+        fprintf(stderr, "send_buf: buf is NULL\n"); //NOLINT
+        exit(1);
+    }
+
+    int fd = conn->fd; //NOLINT
+
+    uint8_t *pos = buf;
     ssize_t sent = 0;
+    
+    for (;;) {
+        if (count == 0) {
+            break;
+        }
+
+        ssize_t n = send(fd, pos, count, 0);
+
+        if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            break;
+        }
+
+        if (n == -1) {
+            perror("send_buf.recv");
+            exit(1);
+        }
+
+        sent += n;
+        count -= n;
+        pos += n * sizeof(*buf);
+    }
 
     return sent;
 }

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include <sys/epoll.h>
 
@@ -19,6 +20,8 @@ static int64_t epoll_init();
 static int64_t epoll_shutdown();
 static int64_t epoll_add_event(event_t* ev);
 static int64_t epoll_del_event(event_t* ev);
+static int64_t epoll_enable_event(event_t* ev);
+static int64_t epoll_disable_event(event_t* ev);
 static int64_t epoll_process_events();
 
 ev_backend_t epoll_backend = {
@@ -27,6 +30,8 @@ ev_backend_t epoll_backend = {
     .shutdown = epoll_shutdown,
     .add_event = epoll_add_event,
     .del_event = epoll_del_event,
+    .enable_event = epoll_enable_event,
+    .disable_event = epoll_disable_event,
     .process_events = epoll_process_events
 };
 
@@ -61,6 +66,11 @@ static int64_t epoll_shutdown() {
 static int64_t epoll_add_event(event_t* ev) {
     int64_t fd = 0;
     struct epoll_event event;
+        
+    if (ev->enabled) {
+        fprintf(stderr, "epoll_add_event: event is already enabled\n"); //NOLINT
+        exit(1);
+    }
 
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;
@@ -69,7 +79,7 @@ static int64_t epoll_add_event(event_t* ev) {
     }
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "epoll_add_event: event owner is NULL\n"); // NOLINT
+        fprintf(stderr, "epoll_add_event: event owner is NULL\n"); //NOLINT
         exit(1);
     }
 
@@ -81,16 +91,18 @@ static int64_t epoll_add_event(event_t* ev) {
             fd = ((connection_t*)ev->owner.ptr)->fd;
             break;
         default:
-            fprintf(stderr, "epoll_add_event: unknown event owner\n"); // NOLINT
+            fprintf(stderr, "epoll_add_event: unknown event owner\n"); //NOLINT
             exit(1);
     }
 
     event.data.ptr = ev;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD,fd, &event) == -1) {
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { //NOLINT
         perror("epoll_add_event.epoll_ctl");
         return -1;
     }
+
+    ev->enabled = true;
 
     return 0;
 }
@@ -99,7 +111,7 @@ static int64_t epoll_del_event(event_t* ev) {
     int64_t fd = 0;
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "epoll_del_event: event owner is NULL\n"); // NOLINT
+        fprintf(stderr, "epoll_del_event: event owner is NULL\n"); //NOLINT
         exit(1);
     }
 
@@ -111,14 +123,100 @@ static int64_t epoll_del_event(event_t* ev) {
             fd = ((connection_t*)ev->owner.ptr)->fd;
             break;
         default:
-            fprintf(stderr, "epoll_del_event: unknown event owner\n"); // NOLINT
+            fprintf(stderr, "epoll_del_event: unknown event owner\n"); //NOLINT
             exit(1);
     }
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) {
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { //NOLINT
         perror("epoll_del_event.epoll_ctl");
         return -1;
     }
+
+    ev->enabled = false;
+
+    return 0;
+}
+
+static int64_t epoll_enable_event(event_t* ev) {
+    int64_t fd = 0;
+    struct epoll_event event;
+
+    if (ev->enabled) {
+        fprintf(stderr, "epoll_enable_event: event is already enabled\n"); //NOLINT
+        exit(1);
+    }
+
+    if (ev->write) {
+        event.events = EPOLLOUT | EPOLLET;
+    } else {
+        event.events = EPOLLIN | EPOLLET;
+    }
+
+    if (ev->owner.ptr == NULL) {
+        fprintf(stderr, "epoll_enable_event: event owner is NULL\n"); //NOLINT
+        exit(1);
+    }
+
+    switch (ev->owner.tag) {
+        case EV_OWNER_LISTENER:
+            fd = ((listener_t*)ev->owner.ptr)->fd;
+            break;
+        case EV_OWNER_CONNECTION:
+            fd = ((connection_t*)ev->owner.ptr)->fd;
+            break;
+        default:
+            fprintf(stderr, "epoll_enable_event: unknown event owner\n"); //NOLINT
+            exit(1);
+    }
+
+    event.data.ptr = ev;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { //NOLINT
+        perror("epoll_enable_event.epoll_ctl");
+        return -1;
+    }
+
+    ev->enabled = true;
+
+    return 0;
+}
+
+static int64_t epoll_disable_event(event_t* ev) {
+    int64_t fd = 0;
+    struct epoll_event event;
+
+    if (!ev->enabled) {
+        fprintf(stderr, "epoll_disable_event: event is already disabled\n"); //NOLINT
+        exit(1);
+    }
+
+    event.events = 0;
+
+    if (ev->owner.ptr == NULL) {
+        fprintf(stderr, "epoll_disable_event: event owner is NULL\n"); //NOLINT
+        exit(1);
+    }
+
+    switch (ev->owner.tag) {
+        case EV_OWNER_LISTENER:
+            fd = ((listener_t*)ev->owner.ptr)->fd;
+            break;
+        case EV_OWNER_CONNECTION:
+            fd = ((connection_t*)ev->owner.ptr)->fd;
+            break;
+        default:
+            fprintf(stderr, "epoll_disable_event: unknown event owner\n"); //NOLINT
+            exit(1);
+    }
+
+    event.data.ptr = ev;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { //NOLINT
+        perror("epoll_disable_event.epoll_ctl");
+        return -1;
+    }
+
+    ev->enabled = false;
 
     return 0;
 }
@@ -137,14 +235,14 @@ static int64_t epoll_process_events() {
         }
 
         if (event_list[n].data.ptr == NULL) {
-            fprintf(stderr, "epoll_process_events: event is NULL\n"); // NOLINT
+            fprintf(stderr, "epoll_process_events: event is NULL\n"); //NOLINT
             exit(1);
         }
 
         event_t* ev = (event_t*)event_list[n].data.ptr;
 
         if (ev->handler == NULL) {
-            fprintf(stderr, "epoll_process_events: event handler is NULL\n"); // NOLINT
+            fprintf(stderr, "epoll_process_events: event handler is NULL\n"); //NOLINT
             exit(1);
         }
 

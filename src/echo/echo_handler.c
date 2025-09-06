@@ -1,28 +1,34 @@
 #include "echo_handler.h"
+#include "session/tcp.h"
 
 #include <core/decl.h>
 #include <core/event.h>
 #include <core/io.h>
 #include <core/buffer.h>
 #include <core/connection.h>
+#include <core/ev_backend.h>
+#include <session/tcp.h>
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void handle_echo_read(event_t *ev);
 static void handle_echo_write(event_t *ev);
+static void handle_connection_closed(event_t *ev);
 
 #define NET_BUFFER_SIZE 4096
 
 void handle_echo(event_t *ev) {
     if (ev->owner.tag != EV_OWNER_CONNECTION) {
-        fprintf(stderr, "handle_echo: bad event owner\n"); // NOLINT
+        fprintf(stderr, "handle_echo: bad event owner\n"); //NOLINT
         exit(1);
     }
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "handle_echo: event owner is NULL\n"); // NOLINT
+        fprintf(stderr, "handle_echo: event owner is NULL\n"); //NOLINT
         exit(1);
     }
 
@@ -50,10 +56,56 @@ void handle_echo(event_t *ev) {
 
 void handle_echo_read(event_t *ev) {
     connection_t* conn = ev->owner.ptr;
+    buffer_t* buf = (buffer_t*)conn->data;
 
-    recv_buf(conn, conn->data);
+    size_t space_left = buf->capacity - buf->taken;
+    uint8_t* pos = buf->data + buf->taken * sizeof(*(buf->data));
+
+    ssize_t read = recv_buf(conn, pos, space_left);
+
+    if (read == 0) {
+        handle_connection_closed(ev);
+        return;
+    }
+
+    buf->taken += read;
+
+    ev_backend->disable_event(conn->read);
+    ev_backend->enable_event(conn->write);
 }
 
 void handle_echo_write(event_t *ev) {
-    (void)ev;
+    connection_t* conn = ev->owner.ptr;
+    buffer_t* buf = (buffer_t*)conn->data;
+
+    ssize_t sent = send_buf(conn, buf->data, buf->taken);
+
+    buf->taken = buf->taken - sent;
+
+    if (buf->taken != 0) {
+        memmove(buf->data, buf->data + sent * sizeof(*(buf->data)), buf->taken); //NOLINT
+        return;
+    }
+
+    ev_backend->disable_event(conn->write);
+    ev_backend->enable_event(conn->read);
+}
+
+void handle_connection_closed(event_t* ev) {
+    connection_t* conn = ev->owner.ptr;
+
+    ev_backend->del_event(conn->read);
+    // ToDo: handle double deletion issue
+    // ev_backend->del_event(conn->write);
+    buffer_t *buf = (buffer_t*)conn->data;
+
+    if (buf != NULL && buf->data != NULL) {
+        free(buf->data);
+    }
+
+    if (buf != NULL) {
+        free(buf);
+    }
+
+    close_connection(conn);
 }

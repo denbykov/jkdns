@@ -27,12 +27,14 @@ void handle_new_connection(int64_t fd) {
         perror("handle_new_connection.allocate_read_event");
         goto cleanup;
     }
+    init_event(r_event);
 
     w_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
         perror("handle_new_connection.allocate_write_event");
         goto cleanup;
     }
+    init_event(w_event);
 
     conn->fd = fd;
     conn->read  = r_event;
@@ -42,7 +44,7 @@ void handle_new_connection(int64_t fd) {
     r_event->owner.ptr = conn;
     r_event->write = false;
     r_event->handler = handle_echo;
-
+    
     w_event->owner.tag = EV_OWNER_CONNECTION;
     w_event->owner.ptr = conn;
     w_event->write = true;
@@ -66,4 +68,12 @@ void handle_new_connection(int64_t fd) {
     }
 
     exit(1);
+}
+
+void close_connection(connection_t *conn) {
+    close(conn->fd); //NOLINT
+
+    free(conn->read);
+    free(conn->write);
+    free(conn);
 }
