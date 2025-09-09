@@ -132,6 +132,8 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
     w_event->write = true;
     w_event->handler = handler;
 
+    ev_backend->add_event(r_event);
+
     return conn;
 
     cleanup:
