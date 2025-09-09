@@ -19,7 +19,14 @@
 
 #define LISTEN_QUEUE 10
 
-listener_t* make_listener(settings_t *s) {
+listener_t* make_listener() {
+    settings_t *s = current_settings;
+
+    if (s == NULL) {
+        fprintf(stderr, "current_settings: settings is NULL\n");
+        exit(1);
+    }
+
     listener_t* l = calloc(1, sizeof(listener_t));
     if (l == NULL) {
         perror("make_listener.allocate_event_list");
@@ -33,6 +40,7 @@ listener_t* make_listener(settings_t *s) {
     int yes = 1;
     int fd = 0;
 
+    // ToDo: move socket connection to the io module and rename it to the net???
     server_sockaddr.sin_family=AF_INET;
 	server_sockaddr.sin_port = htons(s->port);
 	server_sockaddr.sin_addr.s_addr=INADDR_ANY;

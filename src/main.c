@@ -5,28 +5,33 @@
 
 #include <settings/settings.h>
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 extern ev_backend_t epoll_backend;
 
 int main(int argc, char *argv[]) {
-    settings_t settings;
-    init_settings(&settings);
+    settings_t* settings = malloc(sizeof(settings_t));
+    init_settings(settings);
 
-    if(parse_args(argc, argv, &settings) == -1) {
+    if (parse_args(argc, argv, settings) == -1) {
         return -1;
     }
 
-    dump_settings(stdout, &settings);
+    if (validate_settings(settings) == -1) {
+        return -1;
+    }
+
+    dump_settings(stdout, settings);
+    current_settings = settings;
 
     ev_backend = &epoll_backend;
 
-    if(ev_backend->init() == -1) {
+    if (ev_backend->init() == -1) {
         return -1;
     }
 
-    listener_t* l = make_listener(&settings);
+    listener_t* l = make_listener();
     if (l == NULL || l->error == true) {
         release_listener(l);
         return -1;
@@ -47,6 +52,7 @@ int main(int argc, char *argv[]) {
         ev_backend->process_events();
     }
 
+    free(settings);
     release_listener(l);
     ev_backend->shutdown();
 

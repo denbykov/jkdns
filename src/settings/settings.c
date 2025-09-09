@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "core/decl.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,9 +10,18 @@
 
 #define BOOL_TO_S(arg) ((arg) ? "true" : "false")
 
+settings_t *current_settings = NULL;
+
 void init_settings(settings_t *s) {
+    if (s == NULL) {
+        fprintf(stderr, "init_settings: settings is NULL\n");
+        exit(1);
+    }
+
     s->port = 0;
     s->proxy_mode = false;
+    s->remote_ip = NULL;
+    s->port = 0;
 }
 
 static int64_t handle_port(struct settings_s *s, const char *val) {
@@ -27,6 +37,26 @@ static int64_t handle_port(struct settings_s *s, const char *val) {
 static int64_t handle_proxy(struct settings_s *s, const char *val) {
     (void)val; // unused
     s->proxy_mode = true;
+
+    return 0;
+}
+
+static int64_t handle_remote_ip(struct settings_s *s, const char *val) {
+    if (val == NULL) {
+        fprintf(stderr, "remote_ip setting requires a value\n");
+        return -1;
+    }
+    s->remote_ip = val;
+
+    return 0;
+}
+
+static int64_t handle_remote_port(struct settings_s *s, const char *val) {
+    if (!val) {
+        fprintf(stderr, "remote_port setting requires a value\n");
+        return -1;
+    }
+    s->remote_port = strtoll(val, NULL, 10);
 
     return 0;
 }
@@ -47,6 +77,8 @@ typedef struct {
 static option_t options[] = {
     {"port",  'p', OPT_REQUIRED, handle_port},
     {"proxy",  0 , OPT_NONE, handle_proxy},
+    {"remote-ip",  'p', OPT_REQUIRED, handle_remote_ip},
+    {"remote-port",  'p', OPT_REQUIRED, handle_remote_port},
     {0, 0, OPT_NONE, 0} // terminator
 };
 
@@ -109,12 +141,45 @@ void dump_settings(FILE *f, settings_t *s) {
         perror("dump_settings.setvbuf");
     }
 
-    int max_len = (int)strlen("proxy_mode");
+    int max_len = 0;
+
+    for (option_t *opt = options; opt->long_name; opt++) {
+        int len = (int)strlen(opt->long_name);
+        if (len > max_len) {
+            max_len = len;
+        }
+    }
 
     fprintf(f, "settings:\n");
     fprintf(f, "%-*s : %u\n", max_len, "port", s->port);
-    fprintf(f, "%-*s : %s\n",  max_len, "proxy_mode", BOOL_TO_S(s->proxy_mode));
+    fprintf(f, "%-*s : %s\n",  max_len, "proxy-mode", BOOL_TO_S(s->proxy_mode));
+    fprintf(f, "%-*s : %s\n",  max_len, "remote-ip", s->remote_ip);
+    fprintf(f, "%-*s : %u\n",  max_len, "remote-port", s->remote_port);
     fflush(f);
 
     setvbuf(f, NULL, _IOLBF, 0);
+}
+
+int64_t validate_settings(settings_t *s) {
+    if (s == NULL) {
+        fprintf(stderr, "validate_settings: settings is NULL\n");
+        exit(1);
+    }
+
+    if (s->port == 0) {
+        fprintf(stderr, "port is not initialized\n");
+        return -1;
+    }
+
+    if (s->proxy_mode && s->remote_ip == NULL) {
+        fprintf(stderr, "remote_ip is not initialized\n");
+        return -1;
+    }
+
+    if (s->proxy_mode && s->remote_port == 0) {
+        fprintf(stderr, "remote_port is not initialized\n");
+        return -1;
+    }
+
+    return 0;
 }

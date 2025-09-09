@@ -12,6 +12,10 @@ struct connection_s {
 
     event_t *read;
     event_t *write;
+
+    // ToDo: handle connection establishment correctly
+    uint32_t established:1;
+
     // recv_pt recv;
     // send_pt send;
 };
