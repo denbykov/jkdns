@@ -12,12 +12,12 @@
 
 ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     if (conn == NULL) {
-        fprintf(stderr, "recv_buf: connection is NULL\n"); //NOLINT
+        fprintf(stderr, "recv_buf: connection is NULL\n");
         exit(1);
     }
 
     if (buf == NULL) {
-        fprintf(stderr, "recv_buf: buf is NULL\n"); //NOLINT
+        fprintf(stderr, "recv_buf: buf is NULL\n");
         exit(1);
     }
 
@@ -29,7 +29,7 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     
     for (;;) {
         if (space_left <= 0) {
-            fprintf(stderr, "recv_buf: no space left to read into\n"); //NOLINT
+            fprintf(stderr, "recv_buf: no space left to read into\n");
             exit(1);
         }
 
@@ -58,12 +58,12 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
 
 ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     if (conn == NULL) {
-        fprintf(stderr, "send_buf: connection is NULL\n"); //NOLINT
+        fprintf(stderr, "send_buf: connection is NULL\n");
         exit(1);
     }
 
     if (buf == NULL) {
-        fprintf(stderr, "send_buf: buf is NULL\n"); //NOLINT
+        fprintf(stderr, "send_buf: buf is NULL\n");
         exit(1);
     }
 

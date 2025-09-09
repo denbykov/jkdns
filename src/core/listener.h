@@ -13,6 +13,6 @@ struct listener_s {
     uint32_t error:1;
 };
 
-listener_t* make_listener();
+listener_t* make_listener(settings_t *s);
 void release_listener(listener_t* l);
 void accept_handler(event_t* ev);

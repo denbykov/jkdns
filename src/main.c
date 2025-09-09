@@ -3,19 +3,30 @@
 #include <core/event.h>
 #include <core/listener.h>
 
+#include <settings/settings.h>
+
 #include <stdio.h>
 #include <stdbool.h>
 
 extern ev_backend_t epoll_backend;
 
-int main() {
+int main(int argc, char *argv[]) {
+    settings_t settings;
+    init_settings(&settings);
+
+    if(parse_args(argc, argv, &settings) == -1) {
+        return -1;
+    }
+
+    dump_settings(stdout, &settings);
+
     ev_backend = &epoll_backend;
 
     if(ev_backend->init() == -1) {
         return -1;
     }
 
-    listener_t* l = make_listener();
+    listener_t* l = make_listener(&settings);
     if (l == NULL || l->error == true) {
         release_listener(l);
         return -1;

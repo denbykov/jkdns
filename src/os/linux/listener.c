@@ -4,6 +4,7 @@
 #include <core/listener.h>
 #include <core/event.h>
 #include <session/tcp.h>
+#include <settings/settings.h>
 
 #include <errno.h>
 #include <stdlib.h>
@@ -16,10 +17,9 @@
 
 #include <sys/socket.h>
 
-#define PORT "9034"
 #define LISTEN_QUEUE 10
 
-listener_t* make_listener() {
+listener_t* make_listener(settings_t *s) {
     listener_t* l = calloc(1, sizeof(listener_t));
     if (l == NULL) {
         perror("make_listener.allocate_event_list");
@@ -29,52 +29,38 @@ listener_t* make_listener() {
     l->accept = NULL;
     l->fd = -1;
     
-    struct addrinfo hints, *ai, *p;
+    struct sockaddr_in server_sockaddr;
     int yes = 1;
-    int rv = 0;
     int fd = 0;
 
-    memset(&hints, 0, sizeof(hints)); //NOLINT
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+    server_sockaddr.sin_family=AF_INET;
+	server_sockaddr.sin_port = htons(s->port);
+	server_sockaddr.sin_addr.s_addr=INADDR_ANY;
+	memset(&(server_sockaddr.sin_zero),0,8);
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) { //NOLINT
-        fprintf(stderr, "selectserver: %s\n", gai_strerror(rv)); //NOLINT
+    fd = socket(AF_INET, SOCK_STREAM,0);
+    if (fd < 0) {
+        perror("make_listener.socket");
         l->error = true;
         return l;
     }
 
-    for (p = ai; p != NULL; p = p->ai_next) {
-        fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (fd < 0) {
-            continue;
-        }
-
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-            perror("make_listener.setsockopt");
-            l->error = true;
-            return l;
-        }
-        
-        if (bind(fd, p->ai_addr, p->ai_addrlen) < 0) {
-            close(fd);
-            continue;
-        }
-
-        l->fd = fd;
-        l->bound = true;
-
-        break;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+        perror("make_listener.setsockopt");
+        close(fd);
+        l->error = true;
+        return l;
     }
-
-    if (p == NULL) {
-        fprintf(stderr, "selectserver: failed to bind\n"); //NOLINT
+    
+    if (bind(fd, (struct sockaddr *)&server_sockaddr,sizeof(struct sockaddr)) < 0) {
+        perror("make_listener.bind");
+        close(fd);
         l->error = true;
         return l;
     }
 
-    freeaddrinfo(ai);
+    l->fd = fd;
+    l->bound = true;
 
     if (listen(fd, LISTEN_QUEUE) == -1) {
         perror("listen");
@@ -117,7 +103,7 @@ void accept_handler(event_t *ev) {
     int fd = -1;
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "accept_handler: event owner is NULL\n"); //NOLINT
+        fprintf(stderr, "accept_handler: event owner is NULL\n");
         exit(1);
     }
 
@@ -126,7 +112,7 @@ void accept_handler(event_t *ev) {
             fd = ((listener_t*)ev->owner.ptr)->fd; //NOLINT
             break;
         default:
-            fprintf(stderr, "accept_handler: unexpected event owner\n"); //NOLINT
+            fprintf(stderr, "accept_handler: unexpected event owner\n");
             exit(1);
     }
     

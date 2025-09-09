@@ -23,12 +23,12 @@ static void handle_connection_closed(event_t *ev);
 
 void handle_echo(event_t *ev) {
     if (ev->owner.tag != EV_OWNER_CONNECTION) {
-        fprintf(stderr, "handle_echo: bad event owner\n"); //NOLINT
+        fprintf(stderr, "handle_echo: bad event owner\n");
         exit(1);
     }
 
     if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "handle_echo: event owner is NULL\n"); //NOLINT
+        fprintf(stderr, "handle_echo: event owner is NULL\n");
         exit(1);
     }
 
