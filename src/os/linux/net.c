@@ -1,6 +1,6 @@
 #include "core/decl.h"
 
-#include <core/io.h>
+#include <core/net.h>
 #include <core/connection.h>
 #include <core/buffer.h>
 
@@ -25,7 +25,7 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
         exit(1);
     }
 
-    int fd = conn->fd; //NOLINT
+    int fd = conn->fd; // NOLINT
 
     uint8_t *pos = buf;
     size_t space_left = count;
@@ -48,8 +48,7 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
         }
 
         if (n == -1) {
-            perror("recv_buf.recv");
-            exit(1);
+            return -1;
         }
 
         read += n;
@@ -71,7 +70,7 @@ ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
         exit(1);
     }
 
-    int fd = conn->fd; //NOLINT
+    int fd = conn->fd; // NOLINT
 
     uint8_t *pos = buf;
     ssize_t sent = 0;
@@ -108,14 +107,14 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 		exit(1);
 	}
 
-    int flags = fcntl(fd, F_GETFL, 0); //NOLINT
+    int flags = fcntl(fd, F_GETFL, 0); // NOLINT
     if (flags == -1) {
         perror("open_tcp_conn.fcntl_get_flags");
         return -1;
     };
     
     flags |= O_NONBLOCK;
-    if (fcntl(fd, F_SETFL, flags) == -1) { //NOLINT
+    if (fcntl(fd, F_SETFL, flags) == -1) { // NOLINT
         perror("open_tcp_conn.fcntl_set_non_blocking");
         return -1;
     }
@@ -126,14 +125,14 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 
     if (inet_pton(AF_INET, ip, &serv_addr.sin_addr) <= 0) {
         perror("open_tcp_conn.inet_pton");
-        close(fd); //NOLINT
+        close(fd); // NOLINT
         return -1;
     }
 
-    int ret = connect(fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); //NOLINT
+    int ret = connect(fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); // NOLINT
     if (ret < 0 && errno != EINPROGRESS) {
         perror("open_tcp_conn.connect");
-        close(fd); //NOLINT
+        close(fd); // NOLINT
         return -1;
     }
 
@@ -141,5 +140,5 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 }
 
 void close_tcp_conn(int64_t fd) {
-    close(fd); //NOLINT
+    close(fd); // NOLINT
 }

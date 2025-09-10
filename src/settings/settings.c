@@ -21,7 +21,7 @@ void init_settings(settings_t *s) {
     s->port = 0;
     s->proxy_mode = false;
     s->remote_ip = NULL;
-    s->port = 0;
+    s->remote_port = 0;
 }
 
 static int64_t handle_port(struct settings_s *s, const char *val) {
@@ -134,12 +134,14 @@ int64_t parse_args(int argc, char *argv[], settings_t* settings) {
 }
 
 void dump_settings(FILE *f, settings_t *s) {
-    char buf[1024];
+    // ToDo: changing bufferization mode in this manner seems to break things, look at it later
 
-    if (setvbuf(f, buf, _IOFBF, sizeof(buf)) != 0) {
-        // warning
-        perror("dump_settings.setvbuf");
-    }
+    // char buf[1024];
+
+    // if (setvbuf(f, buf, _IOFBF, sizeof(buf)) != 0) {
+    //     // warning
+    //     perror("dump_settings.setvbuf");
+    // }
 
     int max_len = 0;
 
@@ -157,7 +159,7 @@ void dump_settings(FILE *f, settings_t *s) {
     fprintf(f, "%-*s : %u\n",  max_len, "remote-port", s->remote_port);
     fflush(f);
 
-    setvbuf(f, NULL, _IOLBF, 0);
+    // setvbuf(f, NULL, _IOLBF, 0);
 }
 
 int64_t validate_settings(settings_t *s) {

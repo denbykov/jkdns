@@ -3,7 +3,7 @@
 
 #include <core/decl.h>
 #include <core/event.h>
-#include <core/io.h>
+#include <core/net.h>
 #include <core/buffer.h>
 #include <core/connection.h>
 #include <core/ev_backend.h>
@@ -17,7 +17,7 @@
 
 static void handle_echo_read(event_t *ev);
 static void handle_echo_write(event_t *ev);
-static void handle_connection_closed(event_t *ev);
+static void stop_echo(event_t *ev);
 
 #define NET_BUFFER_SIZE 4096
 
@@ -33,6 +33,12 @@ void handle_echo(event_t *ev) {
     }
 
     connection_t* conn = ev->owner.ptr;
+
+    if (conn->error) {
+        perror("handle_echo");
+        stop_echo(ev);
+        return;
+    }
 
     if (conn->data == NULL) {
         buffer_t* buf = calloc(1, sizeof(buffer_t));
@@ -63,8 +69,8 @@ void handle_echo_read(event_t *ev) {
 
     ssize_t read = recv_buf(conn, pos, space_left);
 
-    if (read == 0) {
-        handle_connection_closed(ev);
+    if (read <= 0) {
+        stop_echo(ev);
         return;
     }
 
@@ -83,7 +89,7 @@ void handle_echo_write(event_t *ev) {
     buf->taken = buf->taken - sent;
 
     if (buf->taken != 0) {
-        memmove(buf->data, buf->data + sent * sizeof(*(buf->data)), buf->taken); //NOLINT
+        memmove(buf->data, buf->data + sent * sizeof(*(buf->data)), buf->taken); // NOLINT
         return;
     }
 
@@ -91,12 +97,10 @@ void handle_echo_write(event_t *ev) {
     ev_backend->enable_event(conn->read);
 }
 
-void handle_connection_closed(event_t* ev) {
+void stop_echo(event_t* ev) {
     connection_t* conn = ev->owner.ptr;
 
-    ev_backend->del_event(conn->read);
-    // ToDo: handle double deletion issue
-    // ev_backend->del_event(conn->write);
+    ev_backend->del_conn(conn);
     buffer_t *buf = (buffer_t*)conn->data;
 
     if (buf != NULL && buf->data != NULL) {

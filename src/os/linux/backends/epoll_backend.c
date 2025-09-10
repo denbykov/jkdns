@@ -3,9 +3,11 @@
 #include <core/ev_backend.h>
 #include <core/listener.h>
 #include <core/connection.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <stdbool.h>
 
@@ -22,6 +24,8 @@ static int64_t epoll_add_event(event_t* ev);
 static int64_t epoll_del_event(event_t* ev);
 static int64_t epoll_enable_event(event_t* ev);
 static int64_t epoll_disable_event(event_t* ev);
+static int64_t epoll_add_conn(connection_t* conn);
+static int64_t epoll_del_conn(connection_t* conn);
 static int64_t epoll_process_events();
 
 ev_backend_t epoll_backend = {
@@ -32,6 +36,8 @@ ev_backend_t epoll_backend = {
     .del_event = epoll_del_event,
     .enable_event = epoll_enable_event,
     .disable_event = epoll_disable_event,
+    .add_conn = epoll_add_conn,
+    .del_conn = epoll_del_conn,
     .process_events = epoll_process_events
 };
 
@@ -97,7 +103,7 @@ static int64_t epoll_add_event(event_t* ev) {
 
     event.data.ptr = ev;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { //NOLINT
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
         perror("epoll_add_event.epoll_ctl");
         return -1;
     }
@@ -127,7 +133,7 @@ static int64_t epoll_del_event(event_t* ev) {
             exit(1);
     }
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { //NOLINT
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
         perror("epoll_del_event.epoll_ctl");
         return -1;
     }
@@ -171,7 +177,7 @@ static int64_t epoll_enable_event(event_t* ev) {
 
     event.data.ptr = ev;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { //NOLINT
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
         perror("epoll_enable_event.epoll_ctl");
         return -1;
     }
@@ -211,12 +217,40 @@ static int64_t epoll_disable_event(event_t* ev) {
 
     event.data.ptr = ev;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { //NOLINT
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
         perror("epoll_disable_event.epoll_ctl");
         return -1;
     }
 
     ev->enabled = false;
+
+    return 0;
+}
+
+static int64_t epoll_add_conn(connection_t* conn) {
+    int64_t fd = conn->fd;
+    struct epoll_event event;
+        
+    event.events = 0;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
+        perror("epoll_add_conn.epoll_ctl");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int64_t epoll_del_conn(connection_t* conn) {
+    int64_t fd = conn->fd;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
+        perror("epoll_del_conn.epoll_ctl");
+        return -1;
+    }
+    
+    conn->read->enabled = false;
+    conn->write->enabled = false;
 
     return 0;
 }
@@ -230,16 +264,40 @@ static int64_t epoll_process_events() {
     }
 
     for (int n = 0; n < nfds; ++n) {
-        if (event_list[n].events & (EPOLLERR | EPOLLHUP)) {
-            // ToDo: handle errors
-        }
-
         if (event_list[n].data.ptr == NULL) {
             fprintf(stderr, "epoll_process_events: event is NULL\n");
             exit(1);
         }
 
         event_t* ev = (event_t*)event_list[n].data.ptr;
+
+        if (event_list[n].events & (EPOLLERR | EPOLLHUP)) {
+            int fd = 0;
+            // trace?
+            fprintf(stderr, "epoll_process_events: event failure detected\n");
+            switch (ev->owner.tag) {
+                case EV_OWNER_LISTENER:
+                    ((listener_t*)ev->owner.ptr)->error = true;
+                    fd = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
+                    break;
+                case EV_OWNER_CONNECTION:
+                    ((connection_t*)ev->owner.ptr)->error = true;
+                    fd = ((connection_t*)ev->owner.ptr)->fd; // NOLINT
+                    break;
+                default:
+                    fprintf(stderr, "epoll_process_events: unknown event owner\n");
+                    exit(1);
+            }
+
+            int err = 0;
+            socklen_t len = sizeof(err);
+            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
+                perror("recv_buf.getsockopt");
+                exit(1);
+            }
+
+            errno = err;
+        }
 
         if (ev->handler == NULL) {
             fprintf(stderr, "epoll_process_events: event handler is NULL\n");

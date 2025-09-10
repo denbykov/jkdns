@@ -5,7 +5,7 @@
 #include <core/connection.h>
 #include <core/event.h>
 #include <core/ev_backend.h>
-#include <core/io.h>
+#include <core/net.h>
 
 #include <echo/echo_handler.h>
 #include <echo/echo_proxy_handler.h>
@@ -132,7 +132,7 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
     w_event->write = true;
     w_event->handler = handler;
 
-    ev_backend->add_event(r_event);
+    ev_backend->add_conn(conn);
 
     return conn;
 

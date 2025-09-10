@@ -40,7 +40,6 @@ listener_t* make_listener() {
     int yes = 1;
     int fd = 0;
 
-    // ToDo: move socket connection to the io module and rename it to the net???
     server_sockaddr.sin_family=AF_INET;
 	server_sockaddr.sin_port = htons(s->port);
 	server_sockaddr.sin_addr.s_addr=INADDR_ANY;
@@ -100,7 +99,7 @@ listener_t* make_listener() {
 void release_listener(listener_t *l) {
     if (l != NULL) {
         if (l->fd != -1) {
-            close(l->fd); //NOLINT
+            close(l->fd); // NOLINT
         }
 
         free(l);
@@ -117,7 +116,7 @@ void accept_handler(event_t *ev) {
 
     switch (ev->owner.tag) {
         case EV_OWNER_LISTENER:
-            fd = ((listener_t*)ev->owner.ptr)->fd; //NOLINT
+            fd = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
             break;
         default:
             fprintf(stderr, "accept_handler: unexpected event owner\n");
