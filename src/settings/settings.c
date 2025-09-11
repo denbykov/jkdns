@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <logger.h>
+
 #define BOOL_TO_S(arg) ((arg) ? "true" : "false")
 
 settings_t *current_settings = NULL;
@@ -17,6 +19,9 @@ void init_settings(settings_t *s) {
         fprintf(stderr, "init_settings: settings is NULL\n");
         exit(1);
     }
+
+    s->log_file  = NULL;
+    s->log_level = NULL;
 
     s->port = 0;
     s->proxy_mode = false;
@@ -61,10 +66,29 @@ static int64_t handle_remote_port(struct settings_s *s, const char *val) {
     return 0;
 }
 
+static int64_t handle_log_file(struct settings_s *s, const char *val) {
+    if (!val) {
+        fprintf(stderr, "log_file setting requires a value\n");
+        return -1;
+    }
+    s->log_file = val;
+
+    return 0;
+}
+
+static int64_t handle_log_level(struct settings_s *s, const char *val) {
+    if (!val) {
+        fprintf(stderr, "log_level setting requires a value\n");
+        return -1;
+    }
+    s->log_level = val;
+
+    return 0;
+}
+
 typedef enum {
     OPT_NONE,
-    OPT_REQUIRED,
-    OPT_OPTIONAL
+    OPT_REQUIRED
 } opt_arg_type;
 
 typedef struct {
@@ -75,6 +99,8 @@ typedef struct {
 } option_t;
 
 static option_t options[] = {
+    {"log-file",  'L', OPT_REQUIRED, handle_log_file},
+    {"log-level",  'l', OPT_REQUIRED, handle_log_level},
     {"port",  'p', OPT_REQUIRED, handle_port},
     {"proxy",  0 , OPT_NONE, handle_proxy},
     {"remote-ip",  'p', OPT_REQUIRED, handle_remote_ip},

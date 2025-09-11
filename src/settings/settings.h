@@ -6,6 +6,9 @@
 #include <stdio.h>
 
 struct settings_s {
+    const char* log_file;
+    const char* log_level;
+
     uint16_t port;
     
     bool        proxy_mode;

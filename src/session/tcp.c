@@ -6,6 +6,7 @@
 #include <core/event.h>
 #include <core/ev_backend.h>
 #include <core/net.h>
+#include <logger.h>
 
 #include <echo/echo_handler.h>
 #include <echo/echo_proxy_handler.h>

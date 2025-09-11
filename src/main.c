@@ -2,6 +2,7 @@
 #include <core/ev_backend.h>
 #include <core/event.h>
 #include <core/listener.h>
+#include <logger.h>
 
 #include <settings/settings.h>
 
@@ -24,6 +25,8 @@ int main(int argc, char *argv[]) {
 
     dump_settings(stdout, settings);
     current_settings = settings;
+
+    current_logger = init_logger(settings);
 
     ev_backend = &epoll_backend;
 
