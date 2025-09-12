@@ -7,7 +7,6 @@
 #include <logger/logger.h>
 
 #include <stdint.h>
-#include <stdio.h>
 #include <errno.h>
 #include <netdb.h>
 #include <fcntl.h>

@@ -13,7 +13,6 @@
 #include <echo/echo_proxy_handler.h>
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdbool.h>
 
 void handle_new_connection(int64_t fd) {
@@ -81,35 +80,36 @@ void handle_new_connection(int64_t fd) {
 }
 
 connection_t *tcp_connect(const char* ip, uint16_t port) {
-    int64_t fd = open_tcp_conn(ip, port);
-
+    logger_t *logger = current_logger;
     settings_t *s = current_settings;
 
-    if (fd == JK_ERROR) {
-        fprintf(stderr, "tcp_connect: failed to open tcp connection\n");
-        exit(1);
-    }
+    int64_t fd = open_tcp_conn(ip, port);
 
     connection_t* conn = NULL;
     event_t* r_event = NULL;
     event_t* w_event = NULL;
+
+    if (fd == JK_ERROR) {
+        log_perror("tcp_connect: failed to open tcp connection");
+        goto cleanup;
+    }
     
     conn = calloc(1, sizeof(connection_t));
     if (conn == NULL) {
-        perror("tcp_connect.allocate_connection");
+        log_perror("tcp_connect.allocate_connection");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        perror("tcp_connect.allocate_read_event");
+        log_perror("tcp_connect.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
 
     w_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        perror("tcp_connect.allocate_write_event");
+        log_perror("tcp_connect.allocate_write_event");
         goto cleanup;
     }
     init_event(w_event);
@@ -120,7 +120,7 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
 
     void (*handler)(event_t *ev) = NULL;
     if (!s->proxy_mode) {
-        fprintf(stderr, "tcp_connect: unable to chose handler for non-proxy mode\n");
+        log_error("tcp_connect: unable to chose handler for non-proxy mode");
         goto cleanup;
     }
     handler = handle_echo_proxy;

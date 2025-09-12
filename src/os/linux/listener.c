@@ -9,7 +9,6 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <netdb.h>
 #include <stdbool.h>
@@ -115,8 +114,7 @@ void accept_handler(event_t *ev) {
         fd = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
         break;
         default:
-        fprintf(stderr, "accept_handler: unexpected event owner\n");
-        exit(1);
+        PANIC("unexpected event owner");
     }
     
     for(;;) {

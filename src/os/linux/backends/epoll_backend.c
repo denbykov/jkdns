@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -252,7 +251,7 @@ static int64_t epoll_process_events() {
     // ToDo: add timeout
     int nfds = epoll_wait(epoll_fd, event_list, EPOLL_MAX_EVENTS, -1);
     if (nfds == -1) {
-        perror("epoll_process_events.epoll_wait");
+        log_perror("epoll_process_events.epoll_wait");
         return JK_ERROR;
     }
 
