@@ -1,12 +1,13 @@
 #include "tcp.h"
 #include "core/decl.h"
+#include "core/errors.h"
 #include "settings/settings.h"
 
 #include <core/connection.h>
 #include <core/event.h>
 #include <core/ev_backend.h>
 #include <core/net.h>
-#include <logger.h>
+#include <logger/logger.h>
 
 #include <echo/echo_handler.h>
 #include <echo/echo_proxy_handler.h>
@@ -21,23 +22,24 @@ void handle_new_connection(int64_t fd) {
     event_t* w_event = NULL;
 
     settings_t *s = current_settings;
+    logger_t *logger = current_logger;
     
     conn = calloc(1, sizeof(connection_t));
     if (conn == NULL) {
-        perror("handle_new_connection.allocate_connection");
+        log_error_perror("handle_new_connection.calloc");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        perror("handle_new_connection.allocate_read_event");
+        log_error_perror("handle_new_connection.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
-
+    
     w_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        perror("handle_new_connection.allocate_write_event");
+        log_error_perror("handle_new_connection.allocate_write_event");
         goto cleanup;
     }
     init_event(w_event);
@@ -83,7 +85,7 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
 
     settings_t *s = current_settings;
 
-    if (fd == -1) {
+    if (fd == JK_ERROR) {
         fprintf(stderr, "tcp_connect: failed to open tcp connection\n");
         exit(1);
     }

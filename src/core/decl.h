@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "errors.h"
+
 typedef struct connection_s connection_t;
 typedef struct event_s event_t;
 typedef struct ev_backend_s ev_backend_t;

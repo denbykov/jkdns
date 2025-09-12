@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "core/decl.h"
+#include "core/errors.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -8,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <logger.h>
+#include <logger/logger.h>
 
 #define BOOL_TO_S(arg) ((arg) ? "true" : "false")
 
@@ -32,58 +33,58 @@ void init_settings(settings_t *s) {
 static int64_t handle_port(struct settings_s *s, const char *val) {
     if (!val) {
         fprintf(stderr, "port setting requires a value\n");
-        return -1;
+        return JK_ERROR;
     }
     s->port = strtoll(val, NULL, 10);
 
-    return 0;
+    return JK_OK;
 }
 
 static int64_t handle_proxy(struct settings_s *s, const char *val) {
     (void)val; // unused
     s->proxy_mode = true;
 
-    return 0;
+    return JK_OK;
 }
 
 static int64_t handle_remote_ip(struct settings_s *s, const char *val) {
     if (val == NULL) {
         fprintf(stderr, "remote_ip setting requires a value\n");
-        return -1;
+        return JK_ERROR;
     }
     s->remote_ip = val;
 
-    return 0;
+    return JK_OK;
 }
 
 static int64_t handle_remote_port(struct settings_s *s, const char *val) {
     if (!val) {
         fprintf(stderr, "remote_port setting requires a value\n");
-        return -1;
+        return JK_ERROR;
     }
     s->remote_port = strtoll(val, NULL, 10);
 
-    return 0;
+    return JK_OK;
 }
 
 static int64_t handle_log_file(struct settings_s *s, const char *val) {
     if (!val) {
         fprintf(stderr, "log_file setting requires a value\n");
-        return -1;
+        return JK_ERROR;
     }
     s->log_file = val;
 
-    return 0;
+    return JK_OK;
 }
 
 static int64_t handle_log_level(struct settings_s *s, const char *val) {
     if (!val) {
         fprintf(stderr, "log_level setting requires a value\n");
-        return -1;
+        return JK_ERROR;
     }
     s->log_level = val;
 
-    return 0;
+    return JK_OK;
 }
 
 typedef enum {
@@ -136,11 +137,11 @@ int64_t parse_args(int argc, char *argv[], settings_t* settings) {
                 if (strcmp(name, opt->long_name) == 0) {
                     if (opt->arg_type == OPT_REQUIRED && !val) {
                         fprintf(stderr, "--%s requires a value\n", opt->long_name);
-                        return -1;
+                        return JK_ERROR;
                     }
-                    if (opt->handler(settings, val) == -1) {
+                    if (opt->handler(settings, val) == JK_ERROR) {
                         fprintf(stderr, "parsing aborted\n");
-                        return -1;
+                        return JK_ERROR;
                     }
                     matched = 1;
                     break;
@@ -148,15 +149,15 @@ int64_t parse_args(int argc, char *argv[], settings_t* settings) {
             }
             if (!matched) {
                 fprintf(stderr, "Unknown option: --%s\n", name);
-                return -1;
+                return JK_ERROR;
             }
         } else {
             fprintf(stderr, "Bad format: %s\n", arg);
-            return -1;
+            return JK_ERROR;
         }
     }
 
-    return 0;
+    return JK_OK;
 }
 
 void dump_settings(FILE *f, settings_t *s) {
@@ -179,7 +180,8 @@ void dump_settings(FILE *f, settings_t *s) {
     }
 
     fprintf(f, "settings:\n");
-    fprintf(f, "%-*s : %u\n", max_len, "port", s->port);
+    fprintf(f, "%-*s : %s\n",  max_len, "log-file", s->log_file);
+    fprintf(f, "%-*s : %s\n",  max_len, "log-level", s->log_level);
     fprintf(f, "%-*s : %s\n",  max_len, "proxy-mode", BOOL_TO_S(s->proxy_mode));
     fprintf(f, "%-*s : %s\n",  max_len, "remote-ip", s->remote_ip);
     fprintf(f, "%-*s : %u\n",  max_len, "remote-port", s->remote_port);
@@ -196,18 +198,18 @@ int64_t validate_settings(settings_t *s) {
 
     if (s->port == 0) {
         fprintf(stderr, "port is not initialized\n");
-        return -1;
+        return JK_ERROR;
     }
 
     if (s->proxy_mode && s->remote_ip == NULL) {
         fprintf(stderr, "remote_ip is not initialized\n");
-        return -1;
+        return JK_ERROR;
     }
 
     if (s->proxy_mode && s->remote_port == 0) {
         fprintf(stderr, "remote_port is not initialized\n");
-        return -1;
+        return JK_ERROR;
     }
 
-    return 0;
+    return JK_OK;
 }

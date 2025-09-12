@@ -2,7 +2,7 @@
 #include <core/ev_backend.h>
 #include <core/event.h>
 #include <core/listener.h>
-#include <logger.h>
+#include <logger/logger.h>
 
 #include <settings/settings.h>
 
