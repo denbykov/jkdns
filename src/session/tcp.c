@@ -26,20 +26,20 @@ void handle_new_connection(int64_t fd) {
     
     conn = calloc(1, sizeof(connection_t));
     if (conn == NULL) {
-        log_error_perror("handle_new_connection.calloc");
+        log_perror("handle_new_connection.calloc");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        log_error_perror("handle_new_connection.allocate_read_event");
+        log_perror("handle_new_connection.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
     
     w_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        log_error_perror("handle_new_connection.allocate_write_event");
+        log_perror("handle_new_connection.allocate_write_event");
         goto cleanup;
     }
     init_event(w_event);

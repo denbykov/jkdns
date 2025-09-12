@@ -26,7 +26,7 @@ listener_t* make_listener() {
 
     listener_t* l = calloc(1, sizeof(listener_t));
     if (l == NULL) {
-        log_error_perror("make_listener.allocate_event_list");
+        log_perror("make_listener.allocate_event_list");
         return NULL;
     }
     
@@ -44,20 +44,20 @@ listener_t* make_listener() {
     
     fd = socket(AF_INET, SOCK_STREAM,0);
     if (fd < 0) {
-        log_error_perror("make_listener.socket");
+        log_perror("make_listener.socket");
         l->error = true;
         return l;
     }
     
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-        log_error_perror("make_listener.setsockopt");
+        log_perror("make_listener.setsockopt");
         close(fd);
         l->error = true;
         return l;
     }
     
     if (bind(fd, (struct sockaddr *)&server_sockaddr,sizeof(struct sockaddr)) < 0) {
-        log_error_perror("make_listener.bind");
+        log_perror("make_listener.bind");
         close(fd);
         l->error = true;
         return l;
@@ -67,7 +67,7 @@ listener_t* make_listener() {
     l->bound = true;
     
     if (listen(fd, LISTEN_QUEUE) == -1) {
-        log_error_perror("make_listener.listen");
+        log_perror("make_listener.listen");
         l->error = true;
         return l;
     }
@@ -76,14 +76,14 @@ listener_t* make_listener() {
 
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
-        log_error_perror("make_listener.fcntl_get_flags");
+        log_perror("make_listener.fcntl_get_flags");
         l->error = true;
         return l;
     };
     
     flags |= O_NONBLOCK;
     if (fcntl(fd, F_SETFL, flags) == -1) {
-        log_error_perror("make_listener.fcntl_set_non_blocking");
+        log_perror("make_listener.fcntl_set_non_blocking");
         l->error = true;
         return l;
     }
@@ -130,20 +130,20 @@ void accept_handler(event_t *ev) {
         }
         
         if (conn_fd == -1) {
-            log_error_perror("accept_handler.accept");
+            log_perror("accept_handler.accept");
             continue;
         }
 
         int flags = fcntl(conn_fd, F_GETFL, 0);
         if (flags == -1) {
-            log_error_perror("accept_handler.fcntl_get_flags");
+            log_perror("accept_handler.fcntl_get_flags");
             close(conn_fd);
             continue;
         };
         
         flags |= O_NONBLOCK;
         if (fcntl(conn_fd, F_SETFL, flags) == -1) {
-            log_error_perror("accept_handler.fcntl_set_non_blocking");
+            log_perror("accept_handler.fcntl_set_non_blocking");
             close(conn_fd);
             continue;
         }

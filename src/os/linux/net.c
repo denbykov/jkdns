@@ -74,6 +74,10 @@ ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
 
         ssize_t n = send(fd, pos, count, 0);
 
+        if (n == 0) {
+            return 0;
+        }
+
         if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             break;
         }
@@ -99,14 +103,14 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
-        log_error_perror("open_tcp_conn.fcntl_get_flags");
+        log_perror("open_tcp_conn.fcntl_get_flags");
         close(fd);
         return JK_ERROR;
     };
     
     flags |= O_NONBLOCK;
     if (fcntl(fd, F_SETFL, flags) == -1) {
-        log_error_perror("open_tcp_conn.fcntl_set_non_blocking");
+        log_perror("open_tcp_conn.fcntl_set_non_blocking");
         close(fd);
         return JK_ERROR;
     }
@@ -116,14 +120,14 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 	serv_addr.sin_port = htons(port);
     
     if (inet_pton(AF_INET, ip, &serv_addr.sin_addr) <= 0) {
-        log_error_perror("open_tcp_conn.inet_pton");
+        log_perror("open_tcp_conn.inet_pton");
         close(fd);
         return JK_ERROR;
     }
     
     int ret = connect(fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
     if (ret < 0 && errno != EINPROGRESS) {
-        log_error_perror("open_tcp_conn.connect");
+        log_perror("open_tcp_conn.connect");
         close(fd);
         return JK_ERROR;
     }

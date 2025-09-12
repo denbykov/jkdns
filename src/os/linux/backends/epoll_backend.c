@@ -48,13 +48,13 @@ static int64_t epoll_init() {
 
     event_list = calloc(EPOLL_MAX_EVENTS, sizeof(struct epoll_event));
     if (event_list == NULL) {
-        log_error_perror("epoll_init.allocate_event_list");
+        log_perror("epoll_init.allocate_event_list");
         return JK_ERROR;
     }
 
     epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
-        log_error_perror("epoll_init.epoll_create1");
+        log_perror("epoll_init.epoll_create1");
         return JK_ERROR;
     }
 
@@ -103,7 +103,7 @@ static int64_t epoll_add_event(event_t* ev) {
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
-        log_error_perror("epoll_add_event.epoll_ctl");
+        log_perror("epoll_add_event.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -131,7 +131,7 @@ static int64_t epoll_del_event(event_t* ev) {
     }
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
-        log_error_perror("epoll_del_event.epoll_ctl");
+        log_perror("epoll_del_event.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -170,7 +170,7 @@ static int64_t epoll_enable_event(event_t* ev) {
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
-        log_error_perror("epoll_enable_event.epoll_ctl");
+        log_perror("epoll_enable_event.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -205,7 +205,7 @@ static int64_t epoll_disable_event(event_t* ev) {
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
-        log_error_perror("epoll_disable_event.epoll_ctl");
+        log_perror("epoll_disable_event.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -223,7 +223,7 @@ static int64_t epoll_add_conn(connection_t* conn) {
     event.events = 0;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
-        log_error_perror("epoll_add_conn.epoll_ctl");
+        log_perror("epoll_add_conn.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -236,7 +236,7 @@ static int64_t epoll_del_conn(connection_t* conn) {
     int64_t fd = conn->fd;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
-        log_error_perror("epoll_del_conn.epoll_ctl");
+        log_perror("epoll_del_conn.epoll_ctl");
         return JK_ERROR;
     }
     

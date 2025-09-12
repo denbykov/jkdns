@@ -1,5 +1,6 @@
 #include "echo_handler.h"
 #include "session/tcp.h"
+#include <logger/logger.h>
 
 #include <core/decl.h>
 #include <core/event.h>
@@ -22,22 +23,16 @@ static void stop_echo(event_t *ev);
 #define NET_BUFFER_SIZE 4096
 
 void handle_echo(event_t *ev) {
-    if (ev->owner.tag != EV_OWNER_CONNECTION) {
-        fprintf(stderr, "handle_echo: bad event owner\n");
-        exit(1);
-    }
+    logger_t *logger = current_logger;
 
-    if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "handle_echo: event owner is NULL\n");
-        exit(1);
-    }
+    CHECK_INVARIANT(ev->owner.tag == EV_OWNER_CONNECTION, "bad event owner");
+    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
 
     connection_t* conn = ev->owner.ptr;
 
     if (conn->error) {
-        perror("handle_echo");
-        stop_echo(ev);
-        return;
+        log_perror("handle_echo");
+        return stop_echo(ev);
     }
 
     if (conn->data == NULL) {
@@ -45,12 +40,13 @@ void handle_echo(event_t *ev) {
         buf->data = calloc(NET_BUFFER_SIZE, sizeof(*buf->data));
         buf->capacity = NET_BUFFER_SIZE;
         buf->taken = 0;
+        
+        conn->data = buf;
 
         if (buf == NULL || buf->data == NULL) {
-            perror("handle_hello.allocate_buffer");
-            exit(1);
+            log_perror("handle_hello.allocate_buffer");
+            return stop_echo(ev);
         }
-        conn->data = buf;
     } 
 
     if (ev->write) {
@@ -61,6 +57,8 @@ void handle_echo(event_t *ev) {
 }
 
 void handle_echo_read(event_t *ev) {
+    logger_t *logger = current_logger;
+
     connection_t* conn = ev->owner.ptr;
     buffer_t* buf = (buffer_t*)conn->data;
 
@@ -69,9 +67,19 @@ void handle_echo_read(event_t *ev) {
 
     ssize_t read = recv_buf(conn, pos, space_left);
 
-    if (read <= 0) {
-        stop_echo(ev);
-        return;
+    if (read == 0) {
+        log_trace("peer closed the connection");
+        return stop_echo(ev);
+    }
+    
+    if (read < 0 && read == JK_OUT_OF_BUFFER) {
+        log_error("do_echo_read: no space left to read data into");
+        return stop_echo(ev);
+    }
+
+    if (read < 0 && read == JK_ERROR) {
+        log_perror("do_echo_read");
+        return stop_echo(ev);
     }
 
     buf->taken += read;
@@ -81,10 +89,22 @@ void handle_echo_read(event_t *ev) {
 }
 
 void handle_echo_write(event_t *ev) {
+    logger_t *logger = current_logger;
+
     connection_t* conn = ev->owner.ptr;
     buffer_t* buf = (buffer_t*)conn->data;
 
     ssize_t sent = send_buf(conn, buf->data, buf->taken);
+
+    if (sent == 0) {
+        log_trace("peer closed the connection");
+        return stop_echo(ev);
+    }
+
+    if (sent == JK_ERROR) {
+        log_perror("do_echo_write");
+        return stop_echo(ev);
+    }
 
     buf->taken = buf->taken - sent;
 
@@ -98,6 +118,10 @@ void handle_echo_write(event_t *ev) {
 }
 
 void stop_echo(event_t* ev) {
+    logger_t *logger = current_logger;
+
+    log_trace("stopping proxy echo");
+
     connection_t* conn = ev->owner.ptr;
 
     ev_backend->del_conn(conn);

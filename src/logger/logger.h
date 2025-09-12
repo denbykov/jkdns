@@ -42,13 +42,13 @@ void init_stdout_logging(logger_t *logger);
 #define log_error(...)  base_log(LOG_ERROR, logger, ##__VA_ARGS__)
 #define log_crit(...)   base_log(LOG_CRIT, logger, ##__VA_ARGS__)
 
-#define log_trace_perror(...)  base_log_perror(LOG_TRACE, logger, ##__VA_ARGS__)
-#define log_debug_perror(...)  base_log_perror(LOG_DEBUG, logger, ##__VA_ARGS__)
-#define log_info_perror(...)   base_log_perror(LOG_INFO, logger, ##__VA_ARGS__)
-#define log_notice_perror(...) base_log_perror(LOG_NOTICE, logger, ##__VA_ARGS__)
-#define log_warn_perror(...)   base_log_perror(LOG_WARN, logger, ##__VA_ARGS__)
-#define log_error_perror(...)  base_log_perror(LOG_ERROR, logger, ##__VA_ARGS__)
-#define log_crit_perror(...)   base_log_perror(LOG_CRIT, logger, ##__VA_ARGS__)
+#define log_ptrace(...)  base_log_perror(LOG_TRACE, logger, ##__VA_ARGS__)
+#define log_pdebug(...)  base_log_perror(LOG_DEBUG, logger, ##__VA_ARGS__)
+#define log_pinfo(...)   base_log_perror(LOG_INFO, logger, ##__VA_ARGS__)
+#define log_pnotice(...) base_log_perror(LOG_NOTICE, logger, ##__VA_ARGS__)
+#define log_pwarn(...)   base_log_perror(LOG_WARN, logger, ##__VA_ARGS__)
+#define log_perror(...)  base_log_perror(LOG_ERROR, logger, ##__VA_ARGS__)
+#define log_pcrit(...)   base_log_perror(LOG_CRIT, logger, ##__VA_ARGS__)
 
 #define CHECK_INVARIANT(cond, fmt, ...)                                 \
     do {                                                                \

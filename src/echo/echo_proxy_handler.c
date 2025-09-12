@@ -1,4 +1,6 @@
 #include "echo_proxy_handler.h"
+#include <logger/logger.h>
+#include "core/errors.h"
 #include "session/tcp.h"
 #include "settings/settings.h"
 
@@ -36,26 +38,19 @@ static void do_echo_read(
 
 static void do_echo_write(
     event_t *ev, 
-    connection_t* conn, buffer_t* buf, 
-    connection_t* other);
+    connection_t* conn, buffer_t* buf);
 
 void handle_echo_proxy(event_t *ev) {
-    if (ev->owner.tag != EV_OWNER_CONNECTION) {
-        fprintf(stderr, "handle_echo_proxy: bad event owner\n");
-        exit(1);
-    }
+    logger_t *logger = current_logger;
 
-    if (ev->owner.ptr == NULL) {
-        fprintf(stderr, "handle_echo_proxy: event owner is NULL\n");
-        exit(1);
-    }
+    CHECK_INVARIANT(ev->owner.tag == EV_OWNER_CONNECTION, "bad event owner");
+    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
     
     connection_t* conn = ev->owner.ptr;
 
     if (conn->error) {
-        perror("handle_echo_proxy");
-        stop_echo_proxy(ev);
-        return;
+        log_perror("handle_echo_proxy");
+        return stop_echo_proxy(ev);
     }
     
     if (conn->data == NULL) {
@@ -66,8 +61,8 @@ void handle_echo_proxy(event_t *ev) {
         conn->data = state;
 
         if (state == NULL) {
-            perror("handle_echo_proxy.allocate_state");
-            exit(1);
+            log_perror("handle_echo_proxy.allocate_state");
+            return stop_echo_proxy(ev);
         }
 
         connection_t *remote = tcp_connect(s->remote_ip, s->remote_port);
@@ -82,8 +77,8 @@ void handle_echo_proxy(event_t *ev) {
         state->to_remote = to_remote;
 
         if (to_remote == NULL || to_remote->data == NULL) {
-            perror("handle_echo_proxy.allocate_to_remote_buffer");
-            exit(1);
+            log_perror("handle_echo_proxy.allocate_to_remote_buffer");
+            return stop_echo_proxy(ev);
         }
         
         buffer_t* to_client = calloc(1, sizeof(buffer_t));
@@ -94,8 +89,8 @@ void handle_echo_proxy(event_t *ev) {
         state->to_client = to_client;
 
         if (to_client == NULL || to_client->data == NULL) {
-            perror("handle_echo_proxy.allocate_to_client_buffer");
-            exit(1);
+            log_perror("handle_echo_proxy.allocate_to_client_buffer");
+            return stop_echo_proxy(ev);
         }
     }
 
@@ -123,14 +118,26 @@ void do_echo_read(
     event_t *ev, 
     connection_t* conn, buffer_t* buf, 
     connection_t* other) {
+    logger_t *logger = current_logger;
+
     size_t space_left = buf->capacity - buf->taken;
     uint8_t* pos = buf->data + buf->taken * sizeof(*(buf->data));
     
     ssize_t read = recv_buf(conn, pos, space_left);
+
+    if (read == 0) {
+        log_trace("peer closed the connection");
+        return stop_echo_proxy(ev);
+    }
     
-    if (read <= 0) {
-        stop_echo_proxy(ev);
-        return;
+    if (read < 0 && read == JK_OUT_OF_BUFFER) {
+        log_error("do_echo_read: no space left to read data into");
+        return stop_echo_proxy(ev);
+    }
+
+    if (read < 0 && read == JK_ERROR) {
+        log_perror("do_echo_read");
+        return stop_echo_proxy(ev);
     }
     
     buf->taken += read;
@@ -146,20 +153,28 @@ void handle_echo_write(event_t *ev) {
     bool client_write = conn == state->client;
 
     if (client_write) {
-        return do_echo_write(ev, conn, state->to_client, state->remote);
+        return do_echo_write(ev, conn, state->to_client);
     } else {
-        return do_echo_write(ev, conn, state->to_remote, state->client);
+        return do_echo_write(ev, conn, state->to_remote);
     }
 }
 
 void do_echo_write(
     event_t *ev, 
-    connection_t* conn, buffer_t* buf, 
-    connection_t* other) {
-    (void)ev; // unused for now
-    (void)other; // unused for now
+    connection_t* conn, buffer_t* buf) {
+    logger_t *logger = current_logger;
 
     ssize_t sent = send_buf(conn, buf->data, buf->taken);
+
+    if (sent == 0) {
+        log_trace("peer closed the connection");
+        return stop_echo_proxy(ev);
+    }
+
+    if (sent == JK_ERROR) {
+        log_perror("do_echo_write");
+        return stop_echo_proxy(ev);
+    }
 
     buf->taken = buf->taken - sent;
 
@@ -173,7 +188,8 @@ void do_echo_write(
 }
 
 void stop_echo_proxy(event_t* ev) {
-    printf("closing connections\n");
+    logger_t *logger = current_logger;
+    log_trace("stopping proxy echo");
 
     connection_t* conn = ev->owner.ptr;
 
