@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.31)
 
 project(jkdns VERSION "1.0.0" LANGUAGES C)
 
-
-
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_compile_options(/W4 /std:c11 /Zi)
 endif
