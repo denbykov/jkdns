@@ -2,7 +2,14 @@ cmake_minimum_required(VERSION 3.31)
 
 project(jkdns VERSION "1.0.0" LANGUAGES C)
 
-add_compile_options(-Wall -Wextra -std=c11 -D_GNU_SOURCE -g)
+
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    add_compile_options(/W4 /std:c11 /Zi)
+endif
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_compile_options(-Wall -Wextra -std=c11 -D_GNU_SOURCE -g)
+endif
 
 set(SRCDIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
