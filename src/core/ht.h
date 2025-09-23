@@ -25,6 +25,7 @@ typedef struct {
     session_ht_slot_t *slots;
     size_t capacity;
     size_t size;
+    size_t tombstones;
 } session_ht_t;
 
 // capacity should be a power of two

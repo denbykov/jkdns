@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #include <logger/logger.h>
+#include <unistd.h>
 
 #define FNV_OFFSET_BASIS 14695981039346656037ULL
 #define FNV_PRIME 1099511628211ULL
@@ -27,13 +28,34 @@ static inline bool is_power_of_two(size_t x) {
 }
 
 static size_t session_hash(const session_key_t *key) {
-    const uint8_t *p = (const uint8_t*)key;
-    size_t len = (key->af == 4) ? 1+2+4 : 1+2+16;
     size_t hash = FNV_OFFSET_BASIS;
-    for (size_t i = 0; i < len; i++) {
-        hash ^= p[i];
+
+    // hash address family
+    hash ^= key->af;
+    hash *= FNV_PRIME;
+
+    // hash port (little-endian safe, works byte by byte)
+    uint16_t port = key->src_port;
+    const uint8_t *pport = (const uint8_t *)&port;
+    for (size_t i = 0; i < sizeof(port); i++) {
+        hash ^= pport[i];
         hash *= FNV_PRIME;
     }
+
+    if (key->af == 4) {
+        const uint8_t *p = (const uint8_t *)&key->src.src_v4;
+        for (size_t i = 0; i < sizeof(struct in_addr); i++) {
+            hash ^= p[i];
+            hash *= FNV_PRIME;
+        }
+    } else {
+        const uint8_t *p = (const uint8_t *)&key->src.src_v6;
+        for (size_t i = 0; i < sizeof(struct in6_addr); i++) {
+            hash ^= p[i];
+            hash *= FNV_PRIME;
+        }
+    }
+    
     return hash;
 }
 
@@ -64,6 +86,8 @@ session_ht_t* session_ht_create(size_t capacity) {
 
     ht->slots = slots;
     ht->capacity = capacity;
+    ht->size = 0;
+    ht->tombstones = 0;
 
     return ht;
 }
@@ -71,8 +95,8 @@ session_ht_t* session_ht_create(size_t capacity) {
 void session_ht_destroy(session_ht_t* ht) {
     logger_t* logger = current_logger;
 
-    CHECK_INVARIANT(ht->slots != NULL, "ht slots is null");
     CHECK_INVARIANT(ht != NULL, "ht is null");
+    CHECK_INVARIANT(ht->slots != NULL, "ht slots is null");
 
     free(ht->slots);
     free(ht);
@@ -92,6 +116,7 @@ int session_ht_resize(session_ht_t* ht, size_t capacity) { // NOLINT
     new_ht.slots = slots;
     new_ht.capacity = capacity;
     new_ht.size = 0;
+    new_ht.tombstones = 0;
 
     session_ht_slot_t* old_slots = ht->slots;
 
@@ -117,7 +142,17 @@ int session_ht_resize(session_ht_t* ht, size_t capacity) { // NOLINT
 }
 
 int session_ht_insert(session_ht_t* ht, session_key_t* key, void* data) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(ht != NULL, "ht is null");
+    CHECK_INVARIANT(key != NULL, "key is null");
+
     if ((double)(ht->size + 1) >= (double)ht->capacity * 0.7) {
+        int res = session_ht_resize(ht, ht->capacity * 2);
+        if (res != JK_OK) {
+            return res;
+        }
+    } else if ((double)(ht->tombstones) >= (double)ht->capacity * 0.2) {
         int res = session_ht_resize(ht, ht->capacity * 2);
         if (res != JK_OK) {
             return res;
@@ -149,14 +184,7 @@ int session_ht_insert_impl(
         }
 
         if (slot->state == HTS_OCCUPIED && session_equal(&slot->key, key)) {
-            insertion_pos = slot;
-            break;
-        }
-
-        if (slot->state == HTS_OCCUPIED && 
-            !session_equal(&slot->key, key) &&
-            insertion_pos != NULL) {
-            break;
+            return JK_OCCUPIED;
         }
 
         if (slot->state == HTS_TOMBSTONE && insertion_pos == NULL) {
@@ -166,9 +194,15 @@ int session_ht_insert_impl(
         idx = (idx + 1) & (ht->capacity - 1);
     }
 
+    if (insertion_pos->state == HTS_TOMBSTONE) {
+        ht->tombstones -= 1;
+    }
+    
     insertion_pos->state = HTS_OCCUPIED;
     insertion_pos->key = *key;
     insertion_pos->value = data;
+
+    ht->size += 1;
 
     return JK_OK;
 }
@@ -176,6 +210,10 @@ int session_ht_insert_impl(
 void* session_ht_lookup(
     session_ht_t* ht,
     session_key_t* key) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(ht != NULL, "ht is null");
+    CHECK_INVARIANT(key != NULL, "key is null");
 
     void *result = NULL;
     
@@ -203,6 +241,10 @@ void* session_ht_lookup(
 int session_ht_delete(
     session_ht_t* ht,
     session_key_t* key) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(ht != NULL, "ht is null");
+    CHECK_INVARIANT(key != NULL, "key is null");
     
     size_t idx = session_hash(key) & (ht->capacity - 1);
     session_ht_slot_t* slots = ht->slots;
@@ -215,8 +257,12 @@ int session_ht_delete(
         }
 
         if (slot->state == HTS_OCCUPIED && session_equal(&slot->key, key)) {
-            memset(slot, 0, sizeof(session_ht_slot_t));
             slot->state = HTS_TOMBSTONE;
+            slot->value = NULL;
+
+            ht->tombstones += 1;
+            ht->size -= 1;
+
             return JK_OK;
         }
 
