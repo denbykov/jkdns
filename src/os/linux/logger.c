@@ -1,4 +1,4 @@
-#include <logger/logger.h>
+#include "logger/logger.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include <logger/logger.h>
+#include "logger/logger.h"
 
 void init_file_logging(logger_t *logger, const char* log_file) {
     if (log_file == NULL) {

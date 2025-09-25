@@ -17,6 +17,9 @@ struct ev_backend_s {
     int64_t (*add_conn)(connection_t* conn);
     int64_t (*del_conn)(connection_t* conn);
 
+    int64_t (*add_udp_sock)(udp_socket_t* sock);
+    int64_t (*del_udp_sock)(udp_socket_t* sock);
+
     int64_t (*process_events)();
 };
 

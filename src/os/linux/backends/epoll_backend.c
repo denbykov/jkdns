@@ -1,10 +1,12 @@
 #include "core/errors.h"
-#include <logger/logger.h>
-#include <core/decl.h>
-#include <core/event.h>
-#include <core/ev_backend.h>
-#include <core/listener.h>
-#include <core/connection.h>
+#include "logger/logger.h"
+#include "core/decl.h"
+#include "core/event.h"
+#include "core/ev_backend.h"
+#include "core/listener.h"
+#include "core/connection.h"
+#include "core/udp_socket.h"
+
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -27,6 +29,8 @@ static int64_t epoll_enable_event(event_t* ev);
 static int64_t epoll_disable_event(event_t* ev);
 static int64_t epoll_add_conn(connection_t* conn);
 static int64_t epoll_del_conn(connection_t* conn);
+static int64_t epoll_add_udp_sock(udp_socket_t* sock);
+static int64_t epoll_del_udp_sock(udp_socket_t* sock);
 static int64_t epoll_process_events();
 
 ev_backend_t epoll_backend = {
@@ -39,6 +43,8 @@ ev_backend_t epoll_backend = {
     .disable_event = epoll_disable_event,
     .add_conn = epoll_add_conn,
     .del_conn = epoll_del_conn,
+    .add_udp_sock = epoll_add_udp_sock,
+    .del_udp_sock = epoll_del_udp_sock,
     .process_events = epoll_process_events
 };
 
@@ -291,6 +297,37 @@ static int64_t epoll_process_events() {
 
         ev->handler(ev);
     }
+
+    return JK_OK;
+}
+
+static int64_t epoll_add_udp_sock(udp_socket_t* sock) {
+    logger_t* logger = current_logger;
+
+    int64_t fd = sock->fd;
+    struct epoll_event event;
+        
+    event.events = 0;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
+        log_perror("epoll_add_udp_sock.epoll_ctl");
+        return JK_ERROR;
+    }
+
+    return JK_OK;
+}
+
+static int64_t epoll_del_udp_sock(udp_socket_t* sock) {
+    logger_t* logger = current_logger;
+
+    int64_t fd = sock->fd;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
+        log_perror("epoll_del_udp_sock.epoll_ctl");
+        return JK_ERROR;
+    }
+    
+    sock->read->enabled = false;
 
     return JK_OK;
 }

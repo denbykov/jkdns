@@ -1,11 +1,11 @@
-#include <logger/logger.h>
+#include "logger/logger.h"
 #include <asm-generic/errno-base.h>
 #include <asm-generic/errno.h>
-#include <core/decl.h>
-#include <core/listener.h>
-#include <core/event.h>
-#include <session/tcp.h>
-#include <settings/settings.h>
+#include "core/decl.h"
+#include "core/listener.h"
+#include "core/event.h"
+#include "connection/connection.h"
+#include "settings/settings.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -146,6 +146,6 @@ void accept_handler(event_t *ev) {
             continue;
         }
 
-        handle_new_connection(conn_fd);
+        handle_new_tcp_connection(conn_fd);
     }
 }

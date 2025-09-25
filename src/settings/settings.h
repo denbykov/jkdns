@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/decl.h>
+#include "core/decl.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>

@@ -8,26 +8,26 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <logger/logger.h>
+#include "logger/logger.h"
 #include <unistd.h>
 
 #define FNV_OFFSET_BASIS 14695981039346656037ULL
 #define FNV_PRIME 1099511628211ULL
 
-static int session_ht_resize(
-    session_ht_t* ht,
+static int connection_ht_resize(
+    connection_ht_t* ht,
     size_t capacity);
 
-static int session_ht_insert_impl(
-    session_ht_t* ht,
-    session_key_t* key,
-    void* data);
+static int connection_ht_insert_impl(
+    connection_ht_t* ht,
+    connection_key_t* key,
+    connection_t* data);
 
 static inline bool is_power_of_two(size_t x) {
     return x != 0 && (x & (x - 1)) == 0;
 }
 
-static size_t session_hash(const session_key_t *key) {
+static size_t connection_hash(const connection_key_t *key) {
     size_t hash = FNV_OFFSET_BASIS;
 
     // hash address family
@@ -59,7 +59,7 @@ static size_t session_hash(const session_key_t *key) {
     return hash;
 }
 
-static int session_equal(const session_key_t *a, const session_key_t *b) {
+static int connection_equal(const connection_key_t *a, const connection_key_t *b) {
     if (a->af != b->af) return 0;
     if (a->src_port != b->src_port) return 0;
     if (a->af == 4) {
@@ -69,16 +69,16 @@ static int session_equal(const session_key_t *a, const session_key_t *b) {
     }
 }
 
-session_ht_t* session_ht_create(size_t capacity) {
+connection_ht_t* connection_ht_create(size_t capacity) {
     logger_t* logger = current_logger;
     CHECK_INVARIANT(is_power_of_two(capacity), "capacity is not power of two");
 
-    session_ht_t* ht = calloc(1, sizeof(session_ht_t));
+    connection_ht_t* ht = calloc(1, sizeof(connection_ht_t));
     if (ht == NULL) {
         return NULL;
     }
     
-    session_ht_slot_t* slots = calloc(capacity, sizeof(session_ht_slot_t));
+    connection_ht_slot_t* slots = calloc(capacity, sizeof(connection_ht_slot_t));
     if (slots == NULL) {
         free(ht);
         return NULL;
@@ -92,7 +92,7 @@ session_ht_t* session_ht_create(size_t capacity) {
     return ht;
 }
 
-void session_ht_destroy(session_ht_t* ht) {
+void connection_ht_destroy(connection_ht_t* ht) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(ht != NULL, "ht is null");
@@ -102,28 +102,28 @@ void session_ht_destroy(session_ht_t* ht) {
     free(ht);
 }
 
-int session_ht_resize(session_ht_t* ht, size_t capacity) { // NOLINT
+int connection_ht_resize(connection_ht_t* ht, size_t capacity) { // NOLINT
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(is_power_of_two(capacity), "capacity is not power of two");
 
-    session_ht_slot_t* slots = calloc(capacity, sizeof(session_ht_slot_t));
+    connection_ht_slot_t* slots = calloc(capacity, sizeof(connection_ht_slot_t));
     if (slots == NULL) {
         return -1;
     }
 
-    session_ht_t new_ht;
+    connection_ht_t new_ht;
     new_ht.slots = slots;
     new_ht.capacity = capacity;
     new_ht.size = 0;
     new_ht.tombstones = 0;
 
-    session_ht_slot_t* old_slots = ht->slots;
+    connection_ht_slot_t* old_slots = ht->slots;
 
     for (size_t i = 0; i < ht->capacity; i++) {
         if (old_slots[i].state == HTS_OCCUPIED) {
             int res = 
-                session_ht_insert_impl(
+                connection_ht_insert_impl(
                     &new_ht,
                     &old_slots[i].key,
                     old_slots[i].value);
@@ -141,38 +141,38 @@ int session_ht_resize(session_ht_t* ht, size_t capacity) { // NOLINT
     return JK_OK;
 }
 
-int session_ht_insert(session_ht_t* ht, session_key_t* key, void* data) {
+int connection_ht_insert(connection_ht_t* ht, connection_key_t* key, connection_t* data) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(ht != NULL, "ht is null");
     CHECK_INVARIANT(key != NULL, "key is null");
 
     if ((double)(ht->size + 1) >= (double)ht->capacity * 0.7) {
-        int res = session_ht_resize(ht, ht->capacity * 2);
+        int res = connection_ht_resize(ht, ht->capacity * 2);
         if (res != JK_OK) {
             return res;
         }
     } else if ((double)(ht->tombstones) >= (double)ht->capacity * 0.2) {
-        int res = session_ht_resize(ht, ht->capacity * 2);
+        int res = connection_ht_resize(ht, ht->capacity * 2);
         if (res != JK_OK) {
             return res;
         }
     }
 
-    return session_ht_insert_impl(ht, key, data);
+    return connection_ht_insert_impl(ht, key, data);
 }
 
-int session_ht_insert_impl(
-    session_ht_t* ht,
-    session_key_t* key,
-    void* data) {
+int connection_ht_insert_impl(
+    connection_ht_t* ht,
+    connection_key_t* key,
+    connection_t* data) {
     
-    size_t idx = session_hash(key) & (ht->capacity - 1);
-    session_ht_slot_t* slots = ht->slots;
-    session_ht_slot_t* insertion_pos = NULL;
+    size_t idx = connection_hash(key) & (ht->capacity - 1);
+    connection_ht_slot_t* slots = ht->slots;
+    connection_ht_slot_t* insertion_pos = NULL;
     
     for (;;) {
-        session_ht_slot_t* slot = slots + idx;
+        connection_ht_slot_t* slot = slots + idx;
 
         if (slot->state == HTS_EMPTY && insertion_pos == NULL) {
             insertion_pos = slot;
@@ -183,7 +183,7 @@ int session_ht_insert_impl(
             break;
         }
 
-        if (slot->state == HTS_OCCUPIED && session_equal(&slot->key, key)) {
+        if (slot->state == HTS_OCCUPIED && connection_equal(&slot->key, key)) {
             return JK_OCCUPIED;
         }
 
@@ -207,27 +207,27 @@ int session_ht_insert_impl(
     return JK_OK;
 }
 
-void* session_ht_lookup(
-    session_ht_t* ht,
-    session_key_t* key) {
+connection_t* connection_ht_lookup(
+    connection_ht_t* ht,
+    connection_key_t* key) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(ht != NULL, "ht is null");
     CHECK_INVARIANT(key != NULL, "key is null");
 
-    void *result = NULL;
+    connection_t *result = NULL;
     
-    size_t idx = session_hash(key) & (ht->capacity - 1);
-    session_ht_slot_t* slots = ht->slots;
+    size_t idx = connection_hash(key) & (ht->capacity - 1);
+    connection_ht_slot_t* slots = ht->slots;
     
     for (;;) {
-        session_ht_slot_t* slot = slots + idx;
+        connection_ht_slot_t* slot = slots + idx;
 
         if (slot->state == HTS_EMPTY) {
             break;
         }
 
-        if (slot->state == HTS_OCCUPIED && session_equal(&slot->key, key)) {
+        if (slot->state == HTS_OCCUPIED && connection_equal(&slot->key, key)) {
             result = slot->value;
             break;
         }
@@ -238,25 +238,25 @@ void* session_ht_lookup(
     return result;
 }
 
-int session_ht_delete(
-    session_ht_t* ht,
-    session_key_t* key) {
+int connection_ht_delete(
+    connection_ht_t* ht,
+    connection_key_t* key) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(ht != NULL, "ht is null");
     CHECK_INVARIANT(key != NULL, "key is null");
     
-    size_t idx = session_hash(key) & (ht->capacity - 1);
-    session_ht_slot_t* slots = ht->slots;
+    size_t idx = connection_hash(key) & (ht->capacity - 1);
+    connection_ht_slot_t* slots = ht->slots;
     
     for (;;) {
-        session_ht_slot_t* slot = slots + idx;
+        connection_ht_slot_t* slot = slots + idx;
 
         if (slot->state == HTS_EMPTY) {
             return JK_NOT_FOUND;
         }
 
-        if (slot->state == HTS_OCCUPIED && session_equal(&slot->key, key)) {
+        if (slot->state == HTS_OCCUPIED && connection_equal(&slot->key, key)) {
             slot->state = HTS_TOMBSTONE;
             slot->value = NULL;
 

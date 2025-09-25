@@ -1,10 +1,10 @@
 #include "core/decl.h"
-#include <core/ev_backend.h>
-#include <core/event.h>
-#include <core/listener.h>
-#include <logger/logger.h>
+#include "core/ev_backend.h"
+#include "core/event.h"
+#include "core/listener.h"
+#include "logger/logger.h"
 
-#include <settings/settings.h>
+#include "settings/settings.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
