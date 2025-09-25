@@ -280,6 +280,10 @@ static int64_t epoll_process_events() {
                     ((connection_t*)ev->owner.ptr)->error = true;
                     fd = ((connection_t*)ev->owner.ptr)->fd; // NOLINT
                     break;
+                case EV_OWNER_USOCK:
+                    ((udp_socket_t*)ev->owner.ptr)->error = true;
+                    fd = ((udp_socket_t*)ev->owner.ptr)->fd; // NOLINT
+                    break;
                 default:
                     PANIC("unknown event owner");
             }
@@ -293,6 +297,16 @@ static int64_t epoll_process_events() {
             errno = err;
         }
 
+        if (ev->owner.tag == EV_OWNER_USOCK && event_list[n].events & EPOLLIN) {
+            udp_socket_t* sock = ev->owner.ptr;
+            sock->readable = true;
+        }
+
+        if (ev->owner.tag == EV_OWNER_USOCK && event_list[n].events & EPOLLOUT) {
+            udp_socket_t* sock = ev->owner.ptr;
+            sock->writable = true;
+        }
+
         CHECK_INVARIANT(ev->handler != NULL, "event handler is NULL");
 
         ev->handler(ev);
@@ -304,10 +318,14 @@ static int64_t epoll_process_events() {
 static int64_t epoll_add_udp_sock(udp_socket_t* sock) {
     logger_t* logger = current_logger;
 
+    CHECK_INVARIANT(sock->ev != false, "event is NULL");
+    CHECK_INVARIANT(sock->ev->enabled == false, "event is already enabled");
+
     int64_t fd = sock->fd;
     struct epoll_event event;
-        
-    event.events = 0;
+    event.events = EPOLLIN | EPOLLOUT | EPOLLET;
+    event.data.ptr = sock->ev;
+    sock->ev->enabled = true;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
         log_perror("epoll_add_udp_sock.epoll_ctl");
@@ -327,7 +345,7 @@ static int64_t epoll_del_udp_sock(udp_socket_t* sock) {
         return JK_ERROR;
     }
     
-    sock->read->enabled = false;
+    sock->ev->enabled = false;
 
     return JK_OK;
 }

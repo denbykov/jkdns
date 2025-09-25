@@ -3,9 +3,9 @@
 #include "core/event.h"
 #include "core/listener.h"
 #include "core/udp_socket.h"
-#include "logger/logger.h"
-
 #include "settings/settings.h"
+#include "logger/logger.h"
+#include "udp_socket/udp_socket.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -60,11 +60,22 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-
+    event_t uev;
+    init_event(&uev);
+    uev.owner.ptr = usock;
+    uev.owner.tag = EV_OWNER_USOCK;
+    uev.write = false;
+    uev.handler = udp_ev_handler;
+    usock->ev = &uev;
+    
+    ev_backend->add_udp_sock(usock);
+    
     // Mainloop
     for (;;) {
         ev_backend->process_events();
     }
+    
+    ev_backend->del_udp_sock(usock);
 
     free(settings);
     release_listener(l);

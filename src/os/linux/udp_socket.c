@@ -1,3 +1,4 @@
+#include "core/ht.h"
 #include "logger/logger.h"
 #include "core/decl.h"
 #include "core/udp_socket.h"
@@ -25,9 +26,18 @@ udp_socket_t* make_udp_socket() {
         log_perror("make_udp_socket.allocate_event_list");
         return NULL;
     }
+
+    sock->connections = connection_ht_create(128);
+    if (sock->connections == NULL) {
+        log_perror("make_udp_socket.allocate_connections_ht");
+        sock->error = true;
+        return sock;
+    }
     
-    sock->read = NULL;
+    sock->ev = NULL;
     sock->fd = -1;
+    sock->readable = false;
+    sock->writable = false;
     
     struct sockaddr_in server_sockaddr;
     int yes = 1;
@@ -61,7 +71,6 @@ udp_socket_t* make_udp_socket() {
     
     sock->fd = fd;
     sock->bound = true;
-    
 
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
@@ -91,51 +100,3 @@ void release_udp_socket(udp_socket_t *sock) {
         free(sock);
     }
 }
-
-// void accept_handler(event_t *ev) {
-//     int fd = -1;
-
-//     logger_t *logger = current_logger;
-
-//     CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
-    
-//     switch (ev->owner.tag) {
-//         case EV_OWNER_LISTENER:
-//         fd = ((udp_socket_t*)ev->owner.ptr)->fd; // NOLINT
-//         break;
-//         default:
-//         PANIC("unexpected event owner");
-//     }
-    
-//     for(;;) {
-//         struct sockaddr_storage addr;
-//         socklen_t addrlen = sizeof(struct sockaddr_storage);
-        
-//         int conn_fd = accept(fd, (struct sockaddr*)&addr, &addrlen);
-        
-//         if (conn_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-//             break;
-//         }
-        
-//         if (conn_fd == -1) {
-//             log_perror("accept_handler.accept");
-//             continue;
-//         }
-
-//         int flags = fcntl(conn_fd, F_GETFL, 0);
-//         if (flags == -1) {
-//             log_perror("accept_handler.fcntl_get_flags");
-//             close(conn_fd);
-//             continue;
-//         };
-        
-//         flags |= O_NONBLOCK;
-//         if (fcntl(conn_fd, F_SETFL, flags) == -1) {
-//             log_perror("accept_handler.fcntl_set_non_blocking");
-//             close(conn_fd);
-//             continue;
-//         }
-
-//         handle_new_tcp_connection(conn_fd);
-//     }
-// }

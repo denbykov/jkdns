@@ -9,7 +9,8 @@ typedef void (*event_handler_pt)(event_t* ev);
 enum event_owner_tag {
     EV_OWNER_NONE,
     EV_OWNER_LISTENER,
-    EV_OWNER_CONNECTION
+    EV_OWNER_CONNECTION,
+    EV_OWNER_USOCK,
 };
 
 typedef struct {
