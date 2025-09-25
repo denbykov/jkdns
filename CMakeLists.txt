@@ -8,7 +8,7 @@ set(SRCDIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 set(SOURCE_FILES)
 
-set(IGNORE_FILES "${SRCDIR}/echo/echo_proxy_handler.c;")
+set(IGNORE_FILES "${SRCDIR}/somethig.c;")
 
 file(GLOB_RECURSE SOURCE_FILES "${SRCDIR}/*.c")
 file(GLOB_RECURSE HEADER_FILES "${SRCDIR}/*.h")

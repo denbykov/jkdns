@@ -7,6 +7,7 @@ struct udp_socket_s {
     int64_t fd;
 
     event_t *read;
+    event_t *write;
 
     uint32_t bound:1;
     uint32_t non_blocking:1;

@@ -82,83 +82,83 @@ void handle_new_tcp_connection(int64_t fd) {
     exit(1);
 }
 
-// connection_t *tcp_connect(const char* ip, uint16_t port) {
-//     logger_t *logger = current_logger;
-//     settings_t *s = current_settings;
+connection_t *tcp_connect(const char* ip, uint16_t port) {
+    logger_t *logger = current_logger;
+    settings_t *s = current_settings;
 
-//     int64_t fd = open_tcp_conn(ip, port);
+    int64_t fd = open_tcp_conn(ip, port);
 
-//     connection_t* conn = NULL;
-//     event_t* r_event = NULL;
-//     event_t* w_event = NULL;
+    connection_t* conn = NULL;
+    event_t* r_event = NULL;
+    event_t* w_event = NULL;
 
-//     if (fd == JK_ERROR) {
-//         log_perror("tcp_connect: failed to open tcp connection");
-//         goto cleanup;
-//     }
+    if (fd == JK_ERROR) {
+        log_perror("tcp_connect: failed to open tcp connection");
+        goto cleanup;
+    }
     
-//     conn = calloc(1, sizeof(connection_t));
-//     if (conn == NULL) {
-//         log_perror("tcp_connect.allocate_connection");
-//         goto cleanup;
-//     }
+    conn = calloc(1, sizeof(connection_t));
+    if (conn == NULL) {
+        log_perror("tcp_connect.allocate_connection");
+        goto cleanup;
+    }
 
-//     r_event = calloc(1, sizeof(event_t));
-//     if (conn == NULL) {
-//         log_perror("tcp_connect.allocate_read_event");
-//         goto cleanup;
-//     }
-//     init_event(r_event);
+    r_event = calloc(1, sizeof(event_t));
+    if (conn == NULL) {
+        log_perror("tcp_connect.allocate_read_event");
+        goto cleanup;
+    }
+    init_event(r_event);
 
-//     w_event = calloc(1, sizeof(event_t));
-//     if (conn == NULL) {
-//         log_perror("tcp_connect.allocate_write_event");
-//         goto cleanup;
-//     }
-//     init_event(w_event);
+    w_event = calloc(1, sizeof(event_t));
+    if (conn == NULL) {
+        log_perror("tcp_connect.allocate_write_event");
+        goto cleanup;
+    }
+    init_event(w_event);
 
-//     conn->fd = fd;
-//     conn->read  = r_event;
-//     conn->write = w_event;
+    conn->fd = fd;
+    conn->read  = r_event;
+    conn->write = w_event;
 
-//     void (*handler)(event_t *ev) = NULL;
-//     if (!s->proxy_mode) {
-//         log_error("tcp_connect: unable to chose handler for non-proxy mode");
-//         goto cleanup;
-//     }
-//     handler = handle_echo_proxy;
+    void (*handler)(event_t *ev) = NULL;
+    if (!s->proxy_mode) {
+        log_error("tcp_connect: unable to chose handler for non-proxy mode");
+        goto cleanup;
+    }
+    handler = handle_echo_proxy;
 
-//     r_event->owner.tag = EV_OWNER_CONNECTION;
-//     r_event->owner.ptr = conn;
-//     r_event->write = false;
-//     r_event->handler = handler;
+    r_event->owner.tag = EV_OWNER_CONNECTION;
+    r_event->owner.ptr = conn;
+    r_event->write = false;
+    r_event->handler = handler;
     
-//     w_event->owner.tag = EV_OWNER_CONNECTION;
-//     w_event->owner.ptr = conn;
-//     w_event->write = true;
-//     w_event->handler = handler;
+    w_event->owner.tag = EV_OWNER_CONNECTION;
+    w_event->owner.ptr = conn;
+    w_event->write = true;
+    w_event->handler = handler;
 
-//     ev_backend->add_conn(conn);
+    ev_backend->add_conn(conn);
 
-//     return conn;
+    return conn;
 
-//     cleanup:
-//     close_tcp_conn(fd);
+    cleanup:
+    close_tcp_conn(fd);
 
-//     if (conn != NULL) {
-//         free(conn);
-//     }
+    if (conn != NULL) {
+        free(conn);
+    }
 
-//     if (r_event != NULL) {
-//         free(r_event);
-//     }
+    if (r_event != NULL) {
+        free(r_event);
+    }
 
-//     if (w_event != NULL) {
-//         free(w_event);
-//     }
+    if (w_event != NULL) {
+        free(w_event);
+    }
 
-//     exit(1);
-// }
+    exit(1);
+}
 
 void close_connection(connection_t *conn) {
     close_tcp_conn(conn->fd);
