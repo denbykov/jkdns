@@ -78,41 +78,63 @@ static int64_t epoll_shutdown() {
     return JK_OK;
 }
 
-static int64_t epoll_add_event(event_t* ev) {
+static int64_t epoll_add(event_t* ev, int64_t fd) {
     logger_t* logger = current_logger;
 
-    int64_t fd = 0;
     struct epoll_event event;
-
-    CHECK_INVARIANT(ev->enabled == false, "event is already enabled");
-
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;
     } else {
         event.events = EPOLLIN | EPOLLET;
     }
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
-    
-    switch (ev->owner.tag) {
-        case EV_OWNER_LISTENER:
-        fd = ((listener_t*)ev->owner.ptr)->fd;
-        break;
-        case EV_OWNER_CONNECTION:
-        fd = ((connection_t*)ev->owner.ptr)->fd;
-        break;
-        default:
-            PANIC("unknown event owner");
-    }
-
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) { // NOLINT
-        log_perror("epoll_add_event.epoll_ctl");
+        log_perror("epoll_add.epoll_ctl");
         return JK_ERROR;
     }
 
     ev->enabled = true;
+
+    return JK_OK;
+}
+
+static int64_t epoll_add_event(event_t* ev) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(ev->enabled == false, "event is already enabled");
+    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
+
+    if (ev->owner.tag == EV_OWNER_LISTENER) {
+        return epoll_add(ev, ((listener_t*)ev->owner.ptr)->fd);
+    }
+
+    if (ev->owner.tag == EV_OWNER_CONNECTION) {
+        connection_t *conn = ev->owner.ptr;
+
+        if (conn->handle.type == CONN_TYPE_TCP) {
+            return epoll_add(ev, conn->handle.data.fd);
+        } else if (conn->handle.type == CONN_TYPE_UDP) {
+            PANIC("unimplemented");
+        } else {
+            PANIC("bad connection type");
+        }
+    }
+    
+    PANIC("unknown event owner");
+    return JK_ERROR;
+}
+
+static int64_t epoll_del(event_t* ev, int64_t fd) {
+    logger_t* logger = current_logger;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
+        log_perror("epoll_del.epoll_ctl");
+        return JK_ERROR;
+    }
+
+    ev->enabled = false;
 
     return JK_OK;
 }
@@ -120,62 +142,41 @@ static int64_t epoll_add_event(event_t* ev) {
 static int64_t epoll_del_event(event_t* ev) {
     logger_t* logger = current_logger;
 
-    int64_t fd = 0;
-
     CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
 
-    switch (ev->owner.tag) {
-        case EV_OWNER_LISTENER:
-            fd = ((listener_t*)ev->owner.ptr)->fd;
-            break;
-        case EV_OWNER_CONNECTION:
-            fd = ((connection_t*)ev->owner.ptr)->fd;
-            break;
-        default:
-            PANIC("unknown event owner");
+    if (ev->owner.tag == EV_OWNER_LISTENER) {
+        return epoll_del(ev, ((listener_t*)ev->owner.ptr)->fd);
     }
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
-        log_perror("epoll_del_event.epoll_ctl");
-        return JK_ERROR;
-    }
+    if (ev->owner.tag == EV_OWNER_CONNECTION) {
+        connection_t *conn = ev->owner.ptr;
 
-    ev->enabled = false;
+        if (conn->handle.type == CONN_TYPE_TCP) {
+            return epoll_del(ev, conn->handle.data.fd);
+        } else if (conn->handle.type == CONN_TYPE_UDP) {
+            PANIC("unimplemented");
+        } else {
+            PANIC("bad connection type");
+        }
+    }
 
     return JK_OK;
 }
 
-static int64_t epoll_enable_event(event_t* ev) {
+static int64_t epoll_enable(event_t* ev, int64_t fd) {
     logger_t* logger = current_logger;
 
-    int64_t fd = 0;
     struct epoll_event event;
-
-    CHECK_INVARIANT(ev->enabled == false, "event is already enabled");
-
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;
     } else {
         event.events = EPOLLIN | EPOLLET;
     }
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
-
-    switch (ev->owner.tag) {
-        case EV_OWNER_LISTENER:
-            fd = ((listener_t*)ev->owner.ptr)->fd;
-            break;
-        case EV_OWNER_CONNECTION:
-            fd = ((connection_t*)ev->owner.ptr)->fd;
-            break;
-        default:
-            PANIC("unknown event owner");
-    }
-
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
-        log_perror("epoll_enable_event.epoll_ctl");
+        log_perror("epoll_enable.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -184,33 +185,41 @@ static int64_t epoll_enable_event(event_t* ev) {
     return JK_OK;
 }
 
-static int64_t epoll_disable_event(event_t* ev) {
+static int64_t epoll_enable_event(event_t* ev) {
     logger_t* logger = current_logger;
 
-    int64_t fd = 0;
-    struct epoll_event event;
-
-    CHECK_INVARIANT(ev->enabled == true, "event is already disabled");
-
-    event.events = 0;
-
+    CHECK_INVARIANT(ev->enabled == false, "event is already enabled");
     CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
 
-    switch (ev->owner.tag) {
-        case EV_OWNER_LISTENER:
-            fd = ((listener_t*)ev->owner.ptr)->fd;
-            break;
-        case EV_OWNER_CONNECTION:
-            fd = ((connection_t*)ev->owner.ptr)->fd;
-            break;
-        default:
-            PANIC("unknown event owner");
+    if (ev->owner.tag == EV_OWNER_LISTENER) {
+        return epoll_enable(ev, ((listener_t*)ev->owner.ptr)->fd);
     }
 
+    if (ev->owner.tag == EV_OWNER_CONNECTION) {
+        connection_t *conn = ev->owner.ptr;
+
+        if (conn->handle.type == CONN_TYPE_TCP) {
+            return epoll_enable(ev, conn->handle.data.fd);
+        } else if (conn->handle.type == CONN_TYPE_UDP) {
+            PANIC("unimplemented");
+        } else {
+            PANIC("bad connection type");
+        }
+    }
+    
+    PANIC("unknown event owner");
+    return JK_ERROR;
+}
+
+static int64_t epoll_disable(event_t* ev, int64_t fd) {
+    logger_t* logger = current_logger;
+
+    struct epoll_event event;
+    event.events = 0;
     event.data.ptr = ev;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) == -1) { // NOLINT
-        log_perror("epoll_disable_event.epoll_ctl");
+        log_perror("epoll_disable.epoll_ctl");
         return JK_ERROR;
     }
 
@@ -219,10 +228,44 @@ static int64_t epoll_disable_event(event_t* ev) {
     return JK_OK;
 }
 
-static int64_t epoll_add_conn(connection_t* conn) {
+static int64_t epoll_disable_event(event_t* ev) {
     logger_t* logger = current_logger;
 
-    int64_t fd = conn->fd;
+    CHECK_INVARIANT(ev->enabled == true, "event is already disabled");
+    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
+
+    if (ev->owner.tag == EV_OWNER_LISTENER) {
+        return epoll_disable(ev, ((listener_t*)ev->owner.ptr)->fd);
+    }
+
+    if (ev->owner.tag == EV_OWNER_CONNECTION) {
+        connection_t *conn = ev->owner.ptr;
+
+        if (conn->handle.type == CONN_TYPE_TCP) {
+            return epoll_disable(ev, conn->handle.data.fd);
+        } else if (conn->handle.type == CONN_TYPE_UDP) {
+            PANIC("unimplemented");
+        } else {
+            PANIC("bad connection type");
+        }
+    }
+
+    PANIC("unknown event owner");
+    return JK_ERROR;
+}
+
+static int64_t epoll_add_conn(connection_t* conn) {
+    logger_t* logger = current_logger;
+    int64_t fd = 0;
+
+    if (conn->handle.type == CONN_TYPE_TCP) {
+        fd = conn->handle.data.fd;
+    } else if (conn->handle.type == CONN_TYPE_UDP) {
+        PANIC("unimplemented");
+    } else {
+        PANIC("bad connection type");
+    }
+
     struct epoll_event event;
         
     event.events = 0;
@@ -237,8 +280,15 @@ static int64_t epoll_add_conn(connection_t* conn) {
 
 static int64_t epoll_del_conn(connection_t* conn) {
     logger_t* logger = current_logger;
+    int64_t fd = 0;
 
-    int64_t fd = conn->fd;
+    if (conn->handle.type == CONN_TYPE_TCP) {
+        fd = conn->handle.data.fd;
+    } else if (conn->handle.type == CONN_TYPE_UDP) {
+        PANIC("unimplemented");
+    } else {
+        PANIC("bad connection type");
+    }
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1) { // NOLINT
         log_perror("epoll_del_conn.epoll_ctl");
@@ -277,8 +327,10 @@ static int64_t epoll_process_events() {
                     fd = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
                     break;
                 case EV_OWNER_CONNECTION:
-                    ((connection_t*)ev->owner.ptr)->error = true;
-                    fd = ((connection_t*)ev->owner.ptr)->fd; // NOLINT
+                    connection_t *conn = ev->owner.ptr;
+                    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_TCP, "Should never happen");
+                    conn->error = true;
+                    fd = conn->handle.data.fd; // NOLINT
                     break;
                 case EV_OWNER_USOCK:
                     ((udp_socket_t*)ev->owner.ptr)->error = true;

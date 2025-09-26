@@ -21,7 +21,7 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     CHECK_INVARIANT(conn != NULL, "conn is null");
     CHECK_INVARIANT(buf != NULL, "buf is null");
 
-    int fd = conn->fd; // NOLINT
+    int fd = conn->handle.data.fd; // NOLINT
 
     uint8_t *pos = buf;
     size_t space_left = count;
@@ -61,7 +61,7 @@ ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     CHECK_INVARIANT(conn != NULL, "conn is null");
     CHECK_INVARIANT(buf != NULL, "buf is null");
 
-    int fd = conn->fd; // NOLINT
+    int fd = conn->handle.data.fd; // NOLINT
 
     uint8_t *pos = buf;
     ssize_t sent = 0;

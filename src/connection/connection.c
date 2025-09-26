@@ -20,7 +20,7 @@ void handle_new_tcp_connection(int64_t fd) {
     event_t* r_event = NULL;
     event_t* w_event = NULL;
 
-    // settings_t *s = current_settings;
+    settings_t *s = current_settings;
     logger_t *logger = current_logger;
     
     conn = calloc(1, sizeof(connection_t));
@@ -43,14 +43,14 @@ void handle_new_tcp_connection(int64_t fd) {
     }
     init_event(w_event);
 
-    conn->fd = fd;
+    conn->handle.type = CONN_TYPE_TCP;
+    conn->handle.data.fd = fd;
+
     conn->read  = r_event;
     conn->write = w_event;
-    conn->is_udp = false;
     conn->error = false;
 
-    void (*handler)(event_t *ev) = handle_echo;
-    // void (*handler)(event_t *ev) = s->proxy_mode ? handle_echo_proxy: handle_echo;
+    void (*handler)(event_t *ev) = s->proxy_mode ? handle_echo_proxy: handle_echo;
 
     r_event->owner.tag = EV_OWNER_CONNECTION;
     r_event->owner.ptr = conn;
@@ -117,7 +117,9 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
     }
     init_event(w_event);
 
-    conn->fd = fd;
+    conn->handle.type = CONN_TYPE_TCP;
+    conn->handle.data.fd = fd;
+
     conn->read  = r_event;
     conn->write = w_event;
 
@@ -161,7 +163,13 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
 }
 
 void close_connection(connection_t *conn) {
-    close_tcp_conn(conn->fd);
+    logger_t *logger = current_logger;
+
+    if (conn->handle.type == CONN_TYPE_TCP) {
+        close_tcp_conn(conn->handle.data.fd);
+    } else {
+        PANIC("Not implemented");
+    }
 
     free(conn->read);
     free(conn->write);

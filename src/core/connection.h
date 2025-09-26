@@ -3,6 +3,7 @@
 #include "decl.h"
 
 #include <netinet/in.h> // for in_addr/in6_addr, which should be binary compatible with win
+#include <stdint.h>
 
 typedef struct {
     uint8_t af;
@@ -13,16 +14,28 @@ typedef struct {
     } src;
 } address_t;
 
+typedef enum {
+    CONN_TYPE_TCP,
+    CONN_TYPE_UDP,
+} conn_type_t;
+
+typedef struct {
+    conn_type_t type;
+    union {
+        int64_t fd;
+        udp_socket_t *sock;
+    } data;
+} conn_handle_t;
+
 struct connection_s {
     void *data;
 
     address_t address;
-    int64_t fd;
+    conn_handle_t handle;
 
     event_t *read;
     event_t *write;
 
-    uint32_t is_udp:1;
     uint32_t error:1;
 
     // recv_pt recv;

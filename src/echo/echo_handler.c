@@ -118,7 +118,7 @@ void handle_echo_write(event_t *ev) {
 void stop_echo(event_t* ev) {
     logger_t *logger = current_logger;
 
-    log_trace("stopping proxy echo");
+    log_trace("stopping echo");
 
     connection_t* conn = ev->owner.ptr;
 
