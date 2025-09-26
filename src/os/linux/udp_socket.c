@@ -72,9 +72,24 @@ udp_socket_t* make_udp_socket() {
     sock->fd = fd;
     sock->bound = true;
 
+    buffer_t buf;
+    buf.data = calloc(UDP_MSG_SIZE, sizeof(*buf.data));
+    if (buf.data == NULL) {
+        log_perror("make_udp_socket.allocate_buffer");
+        close(fd);
+        sock->error = true;
+        return sock;
+    }
+    buf.capacity = UDP_MSG_SIZE;
+    buf.taken = 0;
+
+    sock->last_read_buf = buf;
+
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
         log_perror("make_udp_socket.fcntl_get_flags");
+        close(fd);
+        free(buf.data);
         sock->error = true;
         return sock;
     };
@@ -82,6 +97,8 @@ udp_socket_t* make_udp_socket() {
     flags |= O_NONBLOCK;
     if (fcntl(fd, F_SETFL, flags) == -1) {
         log_perror("make_udp_socket.fcntl_set_non_blocking");
+        close(fd);
+        free(buf.data);
         sock->error = true;
         return sock;
     }

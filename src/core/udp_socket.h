@@ -1,6 +1,7 @@
 #pragma once
 
 #include "decl.h"
+#include "buffer.h"
 #include "ht.h"
 
 struct udp_socket_s {
@@ -11,11 +12,13 @@ struct udp_socket_s {
     uint32_t bound:1;
     uint32_t non_blocking:1;
     uint32_t error:1;
-    
+
     uint32_t readable:1;
     uint32_t writable:1;
 
     connection_ht_t *connections;
+
+    buffer_t last_read_buf;
 };
 
 udp_socket_t* make_udp_socket();

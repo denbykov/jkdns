@@ -5,6 +5,9 @@
 
 #include "errors.h"
 
+#define UDP_MSG_SIZE 512
+
+typedef struct address_s address_t;
 typedef struct connection_s connection_t;
 typedef struct event_s event_t;
 typedef struct ev_backend_s ev_backend_t;

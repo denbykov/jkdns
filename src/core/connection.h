@@ -5,14 +5,14 @@
 #include <netinet/in.h> // for in_addr/in6_addr, which should be binary compatible with win
 #include <stdint.h>
 
-typedef struct {
+struct address_s {
     uint8_t af;
     uint16_t src_port;
     union {
         struct in_addr  src_v4;
         struct in6_addr src_v6;
     } src;
-} address_t;
+};
 
 typedef enum {
     CONN_TYPE_TCP,

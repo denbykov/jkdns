@@ -4,12 +4,15 @@
 #include "core/net.h"
 #include "core/connection.h"
 #include "core/buffer.h"
+#include "core/udp_socket.h"
 #include "logger/logger.h"
 
 #include <stdint.h>
 #include <errno.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <sys/socket.h>
@@ -136,4 +139,50 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
 
 void close_tcp_conn(int64_t fd) {
     close(fd); // NOLINT
+}
+
+ssize_t udp_recv(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* address) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(sock != NULL, "sock is null");
+    CHECK_INVARIANT(buf != NULL, "buf is null");
+    CHECK_INVARIANT(address != NULL, "address is null");
+
+    int fd = sock->fd; // NOLINT
+
+    struct sockaddr_storage peer_addr;
+    memset(&peer_addr, 0, sizeof(peer_addr));
+    socklen_t peer_addr_len = sizeof(peer_addr);
+
+    ssize_t n = recvfrom(
+        fd, buf, count, 0,
+		(struct sockaddr *)&peer_addr, &peer_addr_len);
+
+    if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        return JK_EXHAUSTED;
+    }
+
+    if (n == -1) {
+        log_perror("udp_recv.recvfrom");
+        return JK_ERROR;
+    }
+
+    memset(address, 0, sizeof(*address));
+
+    if (peer_addr.ss_family == AF_INET) {
+        struct sockaddr_in *p = (struct sockaddr_in *)&peer_addr;
+        address->af = AF_INET;
+        address->src_port = ntohs(p->sin_port);
+        address->src.src_v4 = p->sin_addr;
+    } else if (peer_addr.ss_family == AF_INET6) {
+        struct sockaddr_in6 *p = (struct sockaddr_in6 *)&peer_addr;
+        address->af = AF_INET6;
+        address->src_port = ntohs(p->sin6_port);
+        address->src.src_v6 = p->sin6_addr;
+    } else {
+        PANIC("Unsupported address family");
+        return JK_ERROR;
+    }
+
+    return n;
 }
