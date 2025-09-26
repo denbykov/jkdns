@@ -326,12 +326,13 @@ static int64_t epoll_process_events() {
                     ((listener_t*)ev->owner.ptr)->error = true;
                     fd = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
                     break;
-                case EV_OWNER_CONNECTION:
+                case EV_OWNER_CONNECTION: {
                     connection_t *conn = ev->owner.ptr;
                     CHECK_INVARIANT(conn->handle.type == CONN_TYPE_TCP, "Should never happen");
                     conn->error = true;
                     fd = conn->handle.data.fd; // NOLINT
                     break;
+                }
                 case EV_OWNER_USOCK:
                     ((udp_socket_t*)ev->owner.ptr)->error = true;
                     fd = ((udp_socket_t*)ev->owner.ptr)->fd; // NOLINT
