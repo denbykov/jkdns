@@ -1,10 +1,11 @@
 #pragma once
 
 #include "core/decl.h"
-#include <stdint.h>
-
 #include "core/connection.h"
 
+#include <stdint.h>
+
 void handle_new_tcp_connection(int64_t fd);
+connection_t *make_udp_connection(udp_socket_t* sock);
 connection_t *tcp_connect(const char* ip, uint16_t port);
 void close_connection(connection_t* conn);

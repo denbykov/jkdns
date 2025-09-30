@@ -6,6 +6,7 @@
 #include "core/listener.h"
 #include "core/connection.h"
 #include "core/udp_socket.h"
+#include "udp_socket/udp_socket.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -116,7 +117,7 @@ static int64_t epoll_add_event(event_t* ev) {
         if (conn->handle.type == CONN_TYPE_TCP) {
             return epoll_add(ev, conn->handle.data.fd);
         } else if (conn->handle.type == CONN_TYPE_UDP) {
-            PANIC("unimplemented");
+            return udp_add_event(ev, conn);
         } else {
             PANIC("bad connection type");
         }
@@ -154,7 +155,7 @@ static int64_t epoll_del_event(event_t* ev) {
         if (conn->handle.type == CONN_TYPE_TCP) {
             return epoll_del(ev, conn->handle.data.fd);
         } else if (conn->handle.type == CONN_TYPE_UDP) {
-            PANIC("unimplemented");
+            return udp_del_event(ev, conn);
         } else {
             PANIC("bad connection type");
         }
@@ -201,7 +202,7 @@ static int64_t epoll_enable_event(event_t* ev) {
         if (conn->handle.type == CONN_TYPE_TCP) {
             return epoll_enable(ev, conn->handle.data.fd);
         } else if (conn->handle.type == CONN_TYPE_UDP) {
-            PANIC("unimplemented");
+            return udp_enable_event(ev, conn);
         } else {
             PANIC("bad connection type");
         }
@@ -244,7 +245,7 @@ static int64_t epoll_disable_event(event_t* ev) {
         if (conn->handle.type == CONN_TYPE_TCP) {
             return epoll_disable(ev, conn->handle.data.fd);
         } else if (conn->handle.type == CONN_TYPE_UDP) {
-            PANIC("unimplemented");
+            return udp_disable_event(ev, conn);
         } else {
             PANIC("bad connection type");
         }

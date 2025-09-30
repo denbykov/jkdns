@@ -18,11 +18,26 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+static ssize_t tcp_recv_buf(connection_t *conn, uint8_t* buf, size_t count);
+static ssize_t udp_recv_buf(connection_t *conn, uint8_t* buf, size_t count);
+
 ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(conn != NULL, "conn is null");
     CHECK_INVARIANT(buf != NULL, "buf is null");
+
+    if (conn->handle.type == CONN_TYPE_TCP) {
+        return tcp_recv_buf(conn, buf, count);
+    } else if (conn->handle.type == CONN_TYPE_UDP) {
+        return udp_recv_buf(conn, buf, count);
+    } else {
+        PANIC("Unexpected connection type");
+    }
+}
+
+static ssize_t tcp_recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
+    logger_t* logger = current_logger;
 
     int fd = conn->handle.data.fd; // NOLINT
 
@@ -32,7 +47,7 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     
     for (;;) {
         if (space_left <= 0) {
-            log_warn("recv_buf: no space left to read into");
+            log_warn("tcp_recv_buf: no space left to read into");
             return JK_OUT_OF_BUFFER;
         }
 
@@ -56,6 +71,19 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     }
 
     return read;
+}
+
+static ssize_t udp_recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
+    logger_t* logger = current_logger;
+
+    udp_socket_t *sock = conn->handle.data.sock;
+
+    CHECK_INVARIANT(sock != NULL, "sock is NULL");
+    CHECK_INVARIANT(sock->last_read_buf.taken <= count, "cannot copy whole buffer");
+
+    memcpy(buf, sock->last_read_buf.data, sock->last_read_buf.taken);
+
+    return (ssize_t)sock->last_read_buf.taken;
 }
 
 ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {

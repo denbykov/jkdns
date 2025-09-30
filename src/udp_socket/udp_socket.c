@@ -1,10 +1,13 @@
 #include "udp_socket.h"
+#include "core/connection.h"
 #include "core/decl.h"
 #include "core/errors.h"
 #include "core/ht.h"
 #include "logger/logger.h"
 #include "core/event.h"
 #include "core/net.h"
+#include "connection/connection.h"
+#include <stdint.h>
 
 static void handle_reads(udp_socket_t* sock);
 static void handle_writes(udp_socket_t* sock);
@@ -57,17 +60,67 @@ static void handle_reads(udp_socket_t* sock) {
 
         connection_t* conn = connection_ht_lookup(ht, &address);
         if (conn == NULL) {
-            log_info("new conn");
-
-            // create conn
-
+            log_trace("handle_reads: new conn");
+            conn = make_udp_connection(sock);
             connection_ht_insert(ht, &address, conn);
         } else {
-            log_info("existing conn");
+            log_trace("handle_reads: existing conn");
+        }
+        
+        if (conn->read->enabled) {
+            conn->read->handler(conn->read);
+        } else {
+            log_warn("handle_reads: discarding data for unarmed event");
         }
     }
 }
 
 static void handle_writes(udp_socket_t* sock) {
 
+}
+
+int64_t udp_add_event(event_t* ev, connection_t* conn) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
+    udp_socket_t *sock = conn->handle.data.sock;
+
+    if (ev->write) {
+        ev->enabled = true;
+        // add to the queue
+        if (sock->writable) {
+            // handle_writes()
+        }
+    }
+
+    if (!ev->write) {
+        ev->enabled = true;
+    }
+
+    return JK_OK;
+}
+
+int64_t udp_del_event(event_t* ev, connection_t* conn) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
+
+    if (ev->write) {
+        // remove from the queue
+        ev->enabled = false;
+    }
+
+    if (!ev->write) {
+        ev->enabled = false;
+    }
+
+    return JK_OK;
+}
+
+int64_t udp_enable_event(event_t* ev, connection_t* conn) {
+    return udp_add_event(ev, conn);
+}
+
+int64_t udp_disable_event(event_t* ev, connection_t* conn) {
+    return udp_del_event(ev, conn);
 }

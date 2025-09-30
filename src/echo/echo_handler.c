@@ -82,6 +82,8 @@ void handle_echo_read(event_t *ev) {
 
     buf->taken += read;
 
+    log_trace("handle_echo_read.msg: %s", buf->data);
+
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
 }
@@ -91,6 +93,8 @@ void handle_echo_write(event_t *ev) {
 
     connection_t* conn = ev->owner.ptr;
     buffer_t* buf = (buffer_t*)conn->data;
+
+    log_trace("handle_echo_write.msg: %s", buf->data);
 
     ssize_t sent = send_buf(conn, buf->data, buf->taken);
 
