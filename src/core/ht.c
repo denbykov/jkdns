@@ -150,7 +150,7 @@ int ht_plain_insert(
         }
 
         if (slot->state == HTS_OCCUPIED && hte->eq_func((void*)slot->key, key)) {
-            return JK_OCCUPIED;
+            insertion_pos = slot;
         }
 
         if (slot->state == HTS_TOMBSTONE && insertion_pos == NULL) {

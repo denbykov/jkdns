@@ -1,4 +1,5 @@
 #include "htt.h"
+#include "core/decl.h"
 
 #include <string.h>
 
@@ -56,6 +57,14 @@ DEFINE_HT(
     connection,
     connection_key_t,
     connection_t,
+    connection_equal,
+    connection_hash
+)
+
+DEFINE_HT(
+    udp_wq,
+    connection_key_t,
+    event_t*,
     connection_equal,
     connection_hash
 )

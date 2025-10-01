@@ -93,13 +93,13 @@ int name##_ht_insert(name##_ht_t* ht, key_type* key, value_type* data) { /* NOLI
         (generic_ht_t*)ht, \
         &name##_ht_essentials, \
         key, \
-        data \
+        (void*)data \
     ); \
 }
 
 #define DEFINE_HT_LOOKUP(name, key_type, value_type) \
 value_type* name##_ht_lookup(name##_ht_t* ht, key_type* key) { /* NOLINT */ \
-    return ht_lookup_impl( \
+    return (void*)ht_lookup_impl( \
         (generic_ht_t*)ht, \
         &name##_ht_essentials, \
         key \
