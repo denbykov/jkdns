@@ -183,7 +183,7 @@ void* ht_lookup_impl(generic_ht_t* ht, ht_essentials_t* hte, void* key) {
     CHECK_INVARIANT_HTE(ht != NULL, "ht is null");
     CHECK_INVARIANT_HTE(key != NULL, "key is null");
 
-    connection_t *result = NULL;
+    void *result = NULL;
     
     size_t idx = hte->hash_func(key) & (ht->capacity - 1);
     uint8_t* slots = ht->slots;
@@ -195,7 +195,7 @@ void* ht_lookup_impl(generic_ht_t* ht, ht_essentials_t* hte, void* key) {
             break;
         }
 
-        if (slot->state == HTS_OCCUPIED && hte->eq_func(&slot->key, key)) {
+        if (slot->state == HTS_OCCUPIED && hte->eq_func((void*)slot->key, key)) {
             result = slot->value;
             break;
         }
