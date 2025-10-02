@@ -3,6 +3,7 @@
 #include "core/decl.h"
 #include "core/errors.h"
 #include "core/ht.h"
+#include "core/udp_wq.h"
 #include "logger/logger.h"
 #include "core/event.h"
 #include "core/net.h"
@@ -45,7 +46,7 @@ static void handle_reads(udp_socket_t* sock) {
 
         CHECK_INVARIANT(read != 0, "should never happen");
 
-        if (read == JK_EXHAUSTED) {
+        if (read == JK_WOULD_BLOCK) {
             break;
         }
         
@@ -61,7 +62,7 @@ static void handle_reads(udp_socket_t* sock) {
         connection_t* conn = connection_ht_lookup(ht, &address);
         if (conn == NULL) {
             log_trace("handle_reads: new conn");
-            conn = make_udp_connection(sock);
+            conn = make_udp_connection(sock, &address);
             connection_ht_insert(ht, &address, conn);
         } else {
             log_trace("handle_reads: existing conn");
@@ -76,7 +77,26 @@ static void handle_reads(udp_socket_t* sock) {
 }
 
 static void handle_writes(udp_socket_t* sock) {
+    logger_t* logger = current_logger;
 
+    CHECK_INVARIANT(sock->writable, "udp socket is not writable!");
+    
+    udp_wq_t* wq = sock->wq;
+    
+    for (;;) {
+        event_t* ev = udp_wq_pop_front(wq);
+        if (ev == NULL) {
+            break;
+        }
+        
+        CHECK_INVARIANT(ev->enabled, "write event is not enabled!");
+
+        ev->handler(ev);
+
+        if (!sock->writable) {
+            break;
+        } 
+    } 
 }
 
 int64_t udp_add_event(event_t* ev, connection_t* conn) {
@@ -84,12 +104,17 @@ int64_t udp_add_event(event_t* ev, connection_t* conn) {
 
     CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
     udp_socket_t *sock = conn->handle.data.sock;
+    udp_wq_t* wq = sock->wq;
 
     if (ev->write) {
+        int res = udp_wq_add(wq, ev);
+        if (res == JK_OUT_OF_BUFFER) {
+            return JK_ERROR;
+        }
+
         ev->enabled = true;
-        // add to the queue
         if (sock->writable) {
-            // handle_writes()
+            handle_writes(sock);
         }
     }
 
@@ -104,9 +129,12 @@ int64_t udp_del_event(event_t* ev, connection_t* conn) {
     logger_t* logger = current_logger;
 
     CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
-
+    udp_socket_t *sock = conn->handle.data.sock;
+    udp_wq_t* wq = sock->wq;
+    
     if (ev->write) {
-        // remove from the queue
+        int res = udp_wq_remove(wq, ev);
+        CHECK_INVARIANT(res == JK_OK, "udp wq remove failed!");
         ev->enabled = false;
     }
 

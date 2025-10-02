@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 void handle_new_tcp_connection(int64_t fd) {
     connection_t* conn = NULL;
@@ -82,7 +83,7 @@ void handle_new_tcp_connection(int64_t fd) {
     exit(1);
 }
 
-connection_t* make_udp_connection(udp_socket_t* sock) {
+connection_t* make_udp_connection(udp_socket_t* sock, address_t* address) {
     connection_t* conn = NULL;
     event_t* r_event = NULL;
     event_t* w_event = NULL;
@@ -95,6 +96,8 @@ connection_t* make_udp_connection(udp_socket_t* sock) {
         log_perror("make_udp_connection.calloc");
         goto cleanup;
     }
+
+    memcpy(&conn->address, address, sizeof(*address));
 
     r_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {

@@ -3,6 +3,7 @@
 #include "decl.h"
 #include "buffer.h"
 #include "htt.h"
+#include "udp_wq.h"
 
 struct udp_socket_s {
     int64_t fd;
@@ -19,6 +20,7 @@ struct udp_socket_s {
     connection_ht_t *connections;
 
     buffer_t last_read_buf;
+    udp_wq_t *wq;
 };
 
 udp_socket_t* make_udp_socket();

@@ -61,7 +61,7 @@ DEFINE_HT(
     connection_hash
 )
 
-DEFINE_HT(
+DEFINE_HT( // NOLINT
     udp_wq,
     connection_key_t,
     event_t*,

@@ -1,4 +1,6 @@
 #include "core/ht.h"
+#include "core/htt.h"
+#include "core/udp_wq.h"
 #include "logger/logger.h"
 #include "core/decl.h"
 #include "core/udp_socket.h"
@@ -33,6 +35,13 @@ udp_socket_t* make_udp_socket() {
         sock->error = true;
         return sock;
     }
+
+    sock->wq = udp_wq_create(128);
+    if (sock->wq == NULL) {
+        log_perror("make_udp_socket.allocate_write_queue");
+        sock->error = true;
+        return sock;
+    }
     
     sock->ev = NULL;
     sock->fd = -1;
@@ -57,14 +66,12 @@ udp_socket_t* make_udp_socket() {
     
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         log_perror("make_udp_socket.setsockopt");
-        close(fd);
         sock->error = true;
         return sock;
     }
     
     if (bind(fd, (struct sockaddr *)&server_sockaddr,sizeof(struct sockaddr)) < 0) {
         log_perror("make_udp_socket.bind");
-        close(fd);
         sock->error = true;
         return sock;
     }
@@ -76,7 +83,6 @@ udp_socket_t* make_udp_socket() {
     buf.data = calloc(UDP_MSG_SIZE, sizeof(*buf.data));
     if (buf.data == NULL) {
         log_perror("make_udp_socket.allocate_buffer");
-        close(fd);
         sock->error = true;
         return sock;
     }
@@ -88,8 +94,6 @@ udp_socket_t* make_udp_socket() {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
         log_perror("make_udp_socket.fcntl_get_flags");
-        close(fd);
-        free(buf.data);
         sock->error = true;
         return sock;
     };
@@ -97,8 +101,6 @@ udp_socket_t* make_udp_socket() {
     flags |= O_NONBLOCK;
     if (fcntl(fd, F_SETFL, flags) == -1) {
         log_perror("make_udp_socket.fcntl_set_non_blocking");
-        close(fd);
-        free(buf.data);
         sock->error = true;
         return sock;
     }
@@ -109,11 +111,23 @@ udp_socket_t* make_udp_socket() {
 }
 
 void release_udp_socket(udp_socket_t *sock) {
-    if (sock != NULL) {
-        if (sock->fd != -1) {
-            close(sock->fd); // NOLINT
-        }
+    logger_t* logger = current_logger;
 
-        free(sock);
+    CHECK_INVARIANT(sock != NULL, "sock is NULL");
+
+    if (sock->last_read_buf.data != NULL) {
+        free(sock->last_read_buf.data);
     }
+
+    close((int)sock->fd);
+
+    if (sock->wq != NULL) {
+        udp_wq_destroy(sock->wq);
+    }
+
+    if (sock->connections != NULL) {
+        connection_ht_destroy(sock->connections);
+    }
+
+    free(sock);
 }

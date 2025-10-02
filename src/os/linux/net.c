@@ -7,6 +7,7 @@
 #include "core/udp_socket.h"
 #include "logger/logger.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
 #include <netdb.h>
@@ -20,6 +21,8 @@
 
 static ssize_t tcp_recv_buf(connection_t *conn, uint8_t* buf, size_t count);
 static ssize_t udp_recv_buf(connection_t *conn, uint8_t* buf, size_t count);
+static ssize_t tcp_send_buf(connection_t *conn, uint8_t* buf, size_t count);
+static ssize_t udp_send_buf(connection_t *conn, uint8_t* buf, size_t count);
 
 ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     logger_t* logger = current_logger;
@@ -34,6 +37,8 @@ ssize_t recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
     } else {
         PANIC("Unexpected connection type");
     }
+
+    return JK_ERROR;
 }
 
 static ssize_t tcp_recv_buf(connection_t *conn, uint8_t* buf, size_t count) {
@@ -92,6 +97,18 @@ ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     CHECK_INVARIANT(conn != NULL, "conn is null");
     CHECK_INVARIANT(buf != NULL, "buf is null");
 
+    if (conn->handle.type == CONN_TYPE_TCP) {
+        return tcp_send_buf(conn, buf, count);
+    } else if (conn->handle.type == CONN_TYPE_UDP) {
+        return udp_send_buf(conn, buf, count);
+    } else {
+        PANIC("Unexpected connection type");
+    }
+
+    return JK_ERROR;
+}
+
+ssize_t tcp_send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     int fd = conn->handle.data.fd; // NOLINT
 
     uint8_t *pos = buf;
@@ -119,6 +136,56 @@ ssize_t send_buf(connection_t *conn, uint8_t* buf, size_t count) {
         sent += n;
         count -= n;
         pos += n * sizeof(*buf);
+    }
+
+    return sent;
+}
+
+static ssize_t udp_send_buf(connection_t *conn, uint8_t* buf, size_t count) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(conn != NULL, "conn is null");
+    CHECK_INVARIANT(buf != NULL, "buf is null");
+    CHECK_INVARIANT(count != 0, "count is 0");
+
+    udp_socket_t *sock = conn->handle.data.sock;
+    
+    CHECK_INVARIANT(sock != NULL, "sock is null");
+    
+    int fd = (int)sock->fd;
+    ssize_t sent = 0;
+
+    if (conn->address.af == AF_INET) {
+        struct sockaddr_in sa4 = {0};
+        sa4.sin_family = AF_INET;
+        sa4.sin_port = htons(conn->address.src_port);
+        sa4.sin_addr = conn->address.src.src_v4;
+
+        sent = 
+            sendto(fd, buf, count, 0,
+            (struct sockaddr*)&sa4, sizeof(sa4));
+
+    } else if (conn->address.af == AF_INET6) {
+        struct sockaddr_in6 sa6 = {0};
+        sa6.sin6_family = AF_INET6;
+        sa6.sin6_port = htons(conn->address.src_port);
+        sa6.sin6_addr = conn->address.src.src_v6;
+
+        sent = 
+            sendto(fd, buf, count, 0,
+             (struct sockaddr*)&sa6, sizeof(sa6));
+    } else {
+        PANIC("Unrecognized address family");
+    }
+
+    if (sent == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        sock->writable = false;
+        return JK_WOULD_BLOCK;
+    }
+
+    if (sent == -1) {
+        log_perror("udp_send_buf.sendto");
+        return JK_ERROR;
     }
 
     return sent;
@@ -175,6 +242,7 @@ ssize_t udp_recv(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* addr
     CHECK_INVARIANT(sock != NULL, "sock is null");
     CHECK_INVARIANT(buf != NULL, "buf is null");
     CHECK_INVARIANT(address != NULL, "address is null");
+    CHECK_INVARIANT(count != 0, "count is 0");
 
     int fd = sock->fd; // NOLINT
 
@@ -187,7 +255,7 @@ ssize_t udp_recv(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* addr
 		(struct sockaddr *)&peer_addr, &peer_addr_len);
 
     if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-        return JK_EXHAUSTED;
+        return JK_WOULD_BLOCK;
     }
 
     if (n == -1) {
