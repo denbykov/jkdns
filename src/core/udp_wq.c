@@ -29,22 +29,20 @@
         (conn)->handle.data.sock != NULL, \
         "conn handle sock is not NULL");
 
-static inline bool is_power_of_two(size_t x) {
-    return x != 0 && (x & (x - 1)) == 0;
-}
-
 udp_wq_t* udp_wq_create(size_t capacity) {
     logger_t* logger = current_logger;
 
-    CHECK_INVARIANT(is_power_of_two(capacity), "capacity is not power of two");
+    CHECK_INVARIANT(capacity > 0, "Bad capacity");
 
     udp_wq_t *wq = calloc(1, sizeof(udp_wq_t));
     if (wq == NULL) {
+        log_perror("udp_wq_create.allocate_udp_wq_t");
         return NULL;
     }
 
     event_t** data = (event_t**)calloc(capacity, sizeof(event_t*));
     if (data == NULL) {
+        log_perror("udp_wq_create.allocate_udp_wq_t->data");
         free(wq);
         return NULL;
     }
@@ -56,6 +54,7 @@ udp_wq_t* udp_wq_create(size_t capacity) {
 
     udp_wq_ht_t *ht = udp_wq_ht_create(capacity * 2);
     if (ht == NULL) {
+        log_error("udp_wq_create.udp_wq_ht_create");
         free((void*)data);
         free(wq);
         return NULL;
