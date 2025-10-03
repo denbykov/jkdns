@@ -1,5 +1,6 @@
 #include "echo_handler.h"
 #include "core/errors.h"
+#include "core/time.h"
 #include "logger/logger.h"
 
 #include "core/decl.h"
@@ -18,8 +19,72 @@
 static void handle_echo_read(event_t *ev);
 static void handle_echo_write(event_t *ev);
 static void stop_echo(event_t *ev);
+static void handle_echo_timeout(void* data);
 
 #define NET_BUFFER_SIZE 4096
+
+typedef struct {
+    buffer_t* buf;
+    jk_timer_t* timer;
+} echo_context_t;
+
+static echo_context_t* create_context();
+static void destroy_context(echo_context_t* ctx);
+
+echo_context_t* create_context() {
+    logger_t *logger = current_logger;
+
+    echo_context_t* ctx = calloc(1, sizeof(echo_context_t));
+    if (ctx == NULL) {
+        log_perror("handle_hello.create_context.allocate_context");
+        return NULL;
+    }
+
+    buffer_t* buf = calloc(1, sizeof(buffer_t));
+    if (buf == NULL) {
+        free(ctx);
+        log_perror("handle_hello.create_context.allocate_buffer");
+        return NULL;
+    }
+
+    buf->data = calloc(NET_BUFFER_SIZE, sizeof(*buf->data));
+    if (buf->data == NULL) {
+        free(ctx);
+        free(buf);
+        log_perror("handle_hello.create_context.allocate_buffer->data");
+        return NULL;
+    }
+    buf->capacity = NET_BUFFER_SIZE;
+    buf->taken = 0;
+
+    jk_timer_t* timer = calloc(1, sizeof(jk_timer_t));
+    if (timer == NULL) {
+        free(ctx);
+        free(buf->data);
+        free(buf);
+        log_perror("handle_hello.create_context.allocate_timer");
+        return NULL;
+    }
+
+    ctx->buf = buf;
+    ctx->timer = timer;
+
+    return ctx;
+}
+
+void destroy_context(echo_context_t* ctx) {
+    logger_t *logger = current_logger;
+
+    CHECK_INVARIANT(ctx != NULL, "ctx is NULL!");
+    CHECK_INVARIANT(ctx->buf != NULL, "ctx->buf is NULL!");
+    CHECK_INVARIANT(ctx->buf->data != NULL, "ctx->buf->data is NULL!");
+    CHECK_INVARIANT(ctx->timer != NULL, "ctx->timer is NULL!");
+
+    free(ctx->timer);
+    free(ctx->buf->data);
+    free(ctx->buf);
+    free(ctx);
+}
 
 void handle_echo(event_t *ev) {
     logger_t *logger = current_logger;
@@ -35,17 +100,19 @@ void handle_echo(event_t *ev) {
     }
 
     if (conn->data == NULL) {
-        buffer_t* buf = calloc(1, sizeof(buffer_t));
-        buf->data = calloc(NET_BUFFER_SIZE, sizeof(*buf->data));
-        buf->capacity = NET_BUFFER_SIZE;
-        buf->taken = 0;
-        
-        conn->data = buf;
+        echo_context_t* ctx = create_context();
 
-        if (buf == NULL || buf->data == NULL) {
-            log_perror("handle_hello.allocate_buffer");
+        jk_timer_start(ctx->timer, 5000);
+        ctx->timer->handler = handle_echo_timeout;
+        ctx->timer->data = conn;
+
+        ev_backend->add_timer(ctx->timer);
+
+        if (ctx == NULL) {
             return stop_echo(ev);
         }
+
+        conn->data = ctx;
     } 
 
     if (ev->write) {
@@ -59,7 +126,8 @@ void handle_echo_read(event_t *ev) {
     logger_t *logger = current_logger;
 
     connection_t* conn = ev->owner.ptr;
-    buffer_t* buf = (buffer_t*)conn->data;
+    echo_context_t* ctx = conn->data;
+    buffer_t* buf = ctx->buf;
 
     size_t space_left = buf->capacity - buf->taken;
     uint8_t* pos = buf->data + buf->taken * sizeof(*(buf->data));
@@ -89,13 +157,17 @@ void handle_echo_read(event_t *ev) {
 
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
+
+    jk_timer_start(ctx->timer, 5000);
+    ev_backend->add_timer(ctx->timer);
 }
 
 void handle_echo_write(event_t *ev) {
     logger_t *logger = current_logger;
 
     connection_t* conn = ev->owner.ptr;
-    buffer_t* buf = (buffer_t*)conn->data;
+    echo_context_t* ctx = conn->data;
+    buffer_t* buf = ctx->buf;
 
     // dirty trick to facilitate logging
     buf->data[buf->taken] = 0;
@@ -126,6 +198,9 @@ void handle_echo_write(event_t *ev) {
 
     ev_backend->disable_event(conn->write);
     ev_backend->enable_event(conn->read);
+
+    jk_timer_start(ctx->timer, 5000);
+    ev_backend->add_timer(ctx->timer);
 }
 
 void stop_echo(event_t* ev) {
@@ -136,15 +211,26 @@ void stop_echo(event_t* ev) {
     connection_t* conn = ev->owner.ptr;
 
     ev_backend->del_conn(conn);
-    buffer_t *buf = (buffer_t*)conn->data;
 
-    if (buf != NULL && buf->data != NULL) {
-        free(buf->data);
-    }
+    echo_context_t *ctx = (echo_context_t*)conn->data;
+    destroy_context(ctx);
 
-    if (buf != NULL) {
-        free(buf);
-    }
+    close_connection(conn);
+}
+
+void handle_echo_timeout(void* data) {
+    logger_t *logger = current_logger;
+
+    connection_t *conn = data;
+
+    CHECK_INVARIANT(conn != NULL, "conn is NULL!");
+
+    log_trace("stopping echo due to the timeout");
+
+    ev_backend->del_conn(conn);
+
+    echo_context_t *ctx = (echo_context_t*)conn->data;
+    destroy_context(ctx);
 
     close_connection(conn);
 }

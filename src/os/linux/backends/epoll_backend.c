@@ -23,7 +23,7 @@
 
 static struct epoll_event* event_list;
 static int epoll_fd = -1;
-static jk_timer_heap_t* th = NULL;
+static jk_timer_heap_t* epoll_th = NULL;
 
 static int64_t epoll_init();
 static int64_t epoll_shutdown();
@@ -35,8 +35,10 @@ static int64_t epoll_add_conn(connection_t* conn);
 static int64_t epoll_del_conn(connection_t* conn);
 static int64_t epoll_add_udp_sock(udp_socket_t* sock);
 static int64_t epoll_del_udp_sock(udp_socket_t* sock);
+static void epoll_register_time_heap(jk_timer_heap_t* th);
 static int64_t epoll_process_events();
 static int64_t epoll_process_timers();
+static int64_t epoll_add_timer(jk_timer_t* timer);
 
 ev_backend_t epoll_backend = {
     .name = "epoll",
@@ -50,8 +52,10 @@ ev_backend_t epoll_backend = {
     .del_conn = epoll_del_conn,
     .add_udp_sock = epoll_add_udp_sock,
     .del_udp_sock = epoll_del_udp_sock,
+    .register_time_heap = epoll_register_time_heap,
     .process_events = epoll_process_events,
-    .process_timers = epoll_process_timers
+    .process_timers = epoll_process_timers,
+    .add_timer = epoll_add_timer
 };
 
 static int64_t epoll_init() {
@@ -307,18 +311,25 @@ static int64_t epoll_del_conn(connection_t* conn) {
     return JK_OK;
 }
 
+void epoll_register_time_heap(jk_timer_heap_t* th) {
+    epoll_th = th;
+}
+
 static int64_t epoll_process_events() {
     logger_t* logger = current_logger;
 
     // default timeout
-    int timeout = 1000;
-    jk_timer_t* next_timer = jk_th_peek(th);
+    int timeout = 10000;
+    jk_timer_t* next_timer = jk_th_peek(epoll_th);
+    log_info("next timer is: %p", next_timer);
     if (next_timer != NULL) {
         int until_timer_expiry = (int)(next_timer->expiry - jk_now());
         if (until_timer_expiry < timeout) {
             timeout = until_timer_expiry;
         }
     }
+
+    log_info("timeout is: %i", timeout);
 
     // ToDo: add timeout
     int nfds = epoll_wait(
@@ -394,22 +405,22 @@ int64_t epoll_process_timers() {
     int64_t now = jk_now();
     
     for (;;) {
-        jk_timer_t* timer = jk_th_peek(th);
+        jk_timer_t* timer = jk_th_peek(epoll_th);
         if (timer == NULL) {
-            continue;
+            break;
         }
 
         CHECK_INVARIANT(timer->handler != NULL, "timer handler is NULL");
 
         if (!timer->enabled) {
-            jk_th_pop(th);
+            jk_th_pop(epoll_th);
             continue;
-        }
-
-        if (timer->expiry <= now) {
+        } else if (timer->expiry <= now) {
             timer->handler(timer->data);
-            jk_th_pop(th);
+            jk_th_pop(epoll_th);
             continue;
+        } else {
+            break;
         }
     }
 
@@ -449,4 +460,8 @@ static int64_t epoll_del_udp_sock(udp_socket_t* sock) {
     sock->ev->enabled = false;
 
     return JK_OK;
+}
+
+static int64_t epoll_add_timer(jk_timer_t* timer) {
+    return jk_th_add(epoll_th, timer);
 }
