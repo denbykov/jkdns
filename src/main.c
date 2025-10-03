@@ -3,6 +3,8 @@
 #include "core/event.h"
 #include "core/listener.h"
 #include "core/udp_socket.h"
+#include "core/time.h"
+
 #include "settings/settings.h"
 #include "logger/logger.h"
 #include "udp_socket/udp_socket.h"
@@ -28,8 +30,14 @@ int main(int argc, char *argv[]) {
     current_settings = settings;
 
     current_logger = init_logger(settings);
+    logger_t* logger = current_logger;
 
     ev_backend = &epoll_backend;
+    jk_timer_heap_t* th = jk_th_create(4096);
+    if (th == NULL) {
+        log_error("main: failed to create timer heap");
+    }
+    ev_backend->register_time_heap(th);
 
     if (ev_backend->init() == -1) {
         return -1;
@@ -73,6 +81,7 @@ int main(int argc, char *argv[]) {
     // Mainloop
     for (;;) {
         ev_backend->process_events();
+        ev_backend->process_timers();
     }
     
     ev_backend->del_udp_sock(usock);

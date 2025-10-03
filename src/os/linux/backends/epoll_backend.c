@@ -1,4 +1,5 @@
 #include "core/errors.h"
+#include "core/time.h"
 #include "logger/logger.h"
 #include "core/decl.h"
 #include "core/event.h"
@@ -10,6 +11,7 @@
 
 #include <errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -21,6 +23,7 @@
 
 static struct epoll_event* event_list;
 static int epoll_fd = -1;
+static jk_timer_heap_t* th = NULL;
 
 static int64_t epoll_init();
 static int64_t epoll_shutdown();
@@ -33,6 +36,7 @@ static int64_t epoll_del_conn(connection_t* conn);
 static int64_t epoll_add_udp_sock(udp_socket_t* sock);
 static int64_t epoll_del_udp_sock(udp_socket_t* sock);
 static int64_t epoll_process_events();
+static int64_t epoll_process_timers();
 
 ev_backend_t epoll_backend = {
     .name = "epoll",
@@ -46,7 +50,8 @@ ev_backend_t epoll_backend = {
     .del_conn = epoll_del_conn,
     .add_udp_sock = epoll_add_udp_sock,
     .del_udp_sock = epoll_del_udp_sock,
-    .process_events = epoll_process_events
+    .process_events = epoll_process_events,
+    .process_timers = epoll_process_timers
 };
 
 static int64_t epoll_init() {
@@ -305,8 +310,22 @@ static int64_t epoll_del_conn(connection_t* conn) {
 static int64_t epoll_process_events() {
     logger_t* logger = current_logger;
 
+    // default timeout
+    int timeout = 1000;
+    jk_timer_t* next_timer = jk_th_peek(th);
+    if (next_timer != NULL) {
+        int until_timer_expiry = (int)(next_timer->expiry - jk_now());
+        if (until_timer_expiry < timeout) {
+            timeout = until_timer_expiry;
+        }
+    }
+
     // ToDo: add timeout
-    int nfds = epoll_wait(epoll_fd, event_list, EPOLL_MAX_EVENTS, -1);
+    int nfds = epoll_wait(
+        epoll_fd,
+        event_list,
+        EPOLL_MAX_EVENTS,
+        timeout);
     if (nfds == -1) {
         log_perror("epoll_process_events.epoll_wait");
         return JK_ERROR;
@@ -364,6 +383,34 @@ static int64_t epoll_process_events() {
         CHECK_INVARIANT(ev->handler != NULL, "event handler is NULL");
 
         ev->handler(ev);
+    }
+
+    return JK_OK;
+}
+
+int64_t epoll_process_timers() {
+    logger_t* logger = current_logger;
+
+    int64_t now = jk_now();
+    
+    for (;;) {
+        jk_timer_t* timer = jk_th_peek(th);
+        if (timer == NULL) {
+            continue;
+        }
+
+        CHECK_INVARIANT(timer->handler != NULL, "timer handler is NULL");
+
+        if (!timer->enabled) {
+            jk_th_pop(th);
+            continue;
+        }
+
+        if (timer->expiry <= now) {
+            timer->handler(timer->data);
+            jk_th_pop(th);
+            continue;
+        }
     }
 
     return JK_OK;

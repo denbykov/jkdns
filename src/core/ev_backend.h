@@ -1,6 +1,7 @@
 #pragma once
 
 #include "decl.h"
+#include "time.h"
 
 struct ev_backend_s {
     const char* name;
@@ -20,7 +21,10 @@ struct ev_backend_s {
     int64_t (*add_udp_sock)(udp_socket_t* sock);
     int64_t (*del_udp_sock)(udp_socket_t* sock);
 
+    void (*register_time_heap)(jk_timer_heap_t* th);
+
     int64_t (*process_events)();
+    int64_t (*process_timers)();
 };
 
 extern ev_backend_t* ev_backend;

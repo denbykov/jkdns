@@ -6,6 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void jk_timer_start(jk_timer_t *timer, int64_t delay_ms) {
+    if (!timer) return;
+    timer->expiry = jk_now() + delay_ms;
+    timer->enabled = true;
+}
+
 jk_timer_heap_t* jk_th_create(size_t capacity) {
     logger_t* logger = current_logger;
 
