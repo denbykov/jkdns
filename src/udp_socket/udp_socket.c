@@ -3,6 +3,7 @@
 #include "core/decl.h"
 #include "core/errors.h"
 #include "core/ht.h"
+#include "core/htt.h"
 #include "core/udp_wq.h"
 #include "logger/logger.h"
 #include "core/event.h"
@@ -102,7 +103,7 @@ static void handle_writes(udp_socket_t* sock) {
 int64_t udp_add_event(event_t* ev, connection_t* conn) {
     logger_t* logger = current_logger;
 
-    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
+    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "bad connection type");
     udp_socket_t *sock = conn->handle.data.sock;
     udp_wq_t* wq = sock->wq;
 
@@ -128,7 +129,7 @@ int64_t udp_add_event(event_t* ev, connection_t* conn) {
 int64_t udp_del_event(event_t* ev, connection_t* conn) {
     logger_t* logger = current_logger;
 
-    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "Bad connection type");
+    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "bad connection type");
     udp_socket_t *sock = conn->handle.data.sock;
     udp_wq_t* wq = sock->wq;
     
@@ -137,11 +138,11 @@ int64_t udp_del_event(event_t* ev, connection_t* conn) {
         CHECK_INVARIANT(res == JK_OK, "udp wq remove failed!");
         ev->enabled = false;
     }
-
+    
     if (!ev->write) {
         ev->enabled = false;
     }
-
+    
     return JK_OK;
 }
 
@@ -151,4 +152,23 @@ int64_t udp_enable_event(event_t* ev, connection_t* conn) {
 
 int64_t udp_disable_event(event_t* ev, connection_t* conn) {
     return udp_del_event(ev, conn);
+}
+
+int64_t udp_del_connection(connection_t *conn) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(conn != NULL, "conneciton is NULL");
+    CHECK_INVARIANT(conn->handle.type == CONN_TYPE_UDP, "bad connection type");
+
+    udp_socket_t* sock = conn->handle.data.sock;
+
+    int res = 0;
+    
+    res = udp_wq_remove(sock->wq, conn->write);
+    CHECK_INVARIANT(res == JK_OK, "failed to remove event from wq");
+    
+    res = connection_ht_delete(sock->connections, &conn->address);
+    CHECK_INVARIANT(res == JK_OK, "failed to remove connection from connections ht");
+
+    return JK_OK;
 }

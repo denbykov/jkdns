@@ -26,7 +26,7 @@ struct ev_backend_s {
     int64_t (*process_events)();
     int64_t (*process_timers)();
 
-    int64_t (*add_timer)(jk_timer_t* timer);
+    jk_timer_t* (*add_timer)(jk_timer_t timer);
 };
 
 extern ev_backend_t* ev_backend;

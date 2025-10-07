@@ -239,8 +239,8 @@ void close_connection(connection_t *conn) {
 
     if (conn->handle.type == CONN_TYPE_TCP) {
         close_tcp_conn(conn->handle.data.fd);
-    } else {
-        PANIC("Not implemented");
+    } else if (conn->handle.type != CONN_TYPE_UDP) {
+        PANIC("bad conneciton type");
     }
 
     free(conn->read);

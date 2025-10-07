@@ -1,5 +1,6 @@
 #include "echo_handler.h"
 #include "core/errors.h"
+#include "core/ht.h"
 #include "core/time.h"
 #include "logger/logger.h"
 
@@ -27,6 +28,8 @@ typedef struct {
     buffer_t* buf;
     jk_timer_t* timer;
 } echo_context_t;
+
+static void start_new_timer(echo_context_t* ctx, int timeout, connection_t* conn);
 
 static echo_context_t* create_context();
 static void destroy_context(echo_context_t* ctx);
@@ -56,18 +59,8 @@ echo_context_t* create_context() {
     }
     buf->capacity = NET_BUFFER_SIZE;
     buf->taken = 0;
-
-    jk_timer_t* timer = calloc(1, sizeof(jk_timer_t));
-    if (timer == NULL) {
-        free(ctx);
-        free(buf->data);
-        free(buf);
-        log_perror("handle_hello.create_context.allocate_timer");
-        return NULL;
-    }
-
     ctx->buf = buf;
-    ctx->timer = timer;
+    ctx->timer = NULL;
 
     return ctx;
 }
@@ -80,7 +73,6 @@ void destroy_context(echo_context_t* ctx) {
     CHECK_INVARIANT(ctx->buf->data != NULL, "ctx->buf->data is NULL!");
     CHECK_INVARIANT(ctx->timer != NULL, "ctx->timer is NULL!");
 
-    free(ctx->timer);
     free(ctx->buf->data);
     free(ctx->buf);
     free(ctx);
@@ -102,16 +94,12 @@ void handle_echo(event_t *ev) {
     if (conn->data == NULL) {
         echo_context_t* ctx = create_context();
 
-        jk_timer_start(ctx->timer, 5000);
-        ctx->timer->handler = handle_echo_timeout;
-        ctx->timer->data = conn;
-
-        ev_backend->add_timer(ctx->timer);
-
         if (ctx == NULL) {
+            // ToDo: need better stop procedure
             return stop_echo(ev);
         }
 
+        start_new_timer(ctx, 5000, conn);
         conn->data = ctx;
     } 
 
@@ -158,8 +146,7 @@ void handle_echo_read(event_t *ev) {
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
 
-    jk_timer_start(ctx->timer, 5000);
-    ev_backend->add_timer(ctx->timer);
+    start_new_timer(ctx, 5000, conn);
 }
 
 void handle_echo_write(event_t *ev) {
@@ -199,8 +186,7 @@ void handle_echo_write(event_t *ev) {
     ev_backend->disable_event(conn->write);
     ev_backend->enable_event(conn->read);
 
-    jk_timer_start(ctx->timer, 5000);
-    ev_backend->add_timer(ctx->timer);
+    start_new_timer(ctx, 5000, conn);
 }
 
 void stop_echo(event_t* ev) {
@@ -213,8 +199,12 @@ void stop_echo(event_t* ev) {
     ev_backend->del_conn(conn);
 
     echo_context_t *ctx = (echo_context_t*)conn->data;
+    if (ctx->timer != NULL) {
+        ctx->timer->enabled = false;
+    }
+    
     destroy_context(ctx);
-
+    
     close_connection(conn);
 }
 
@@ -230,7 +220,27 @@ void handle_echo_timeout(void* data) {
     ev_backend->del_conn(conn);
 
     echo_context_t *ctx = (echo_context_t*)conn->data;
+    if (ctx->timer != NULL) {
+        ctx->timer->enabled = false;
+    }
+    
     destroy_context(ctx);
 
     close_connection(conn);
+}
+
+void start_new_timer(echo_context_t* ctx, int timeout, connection_t* conn) {
+    logger_t *logger = current_logger;
+
+    if (ctx->timer != NULL) {
+        CHECK_INVARIANT(ctx->timer->enabled == true, "old timer is disabled");
+        ctx->timer->enabled = false;
+    }
+    
+    jk_timer_t timer;
+    jk_timer_start(&timer, timeout);
+    timer.handler = handle_echo_timeout;
+    timer.data = conn;
+
+    ctx->timer = ev_backend->add_timer(timer);
 }

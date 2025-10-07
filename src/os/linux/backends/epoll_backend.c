@@ -38,7 +38,7 @@ static int64_t epoll_del_udp_sock(udp_socket_t* sock);
 static void epoll_register_time_heap(jk_timer_heap_t* th);
 static int64_t epoll_process_events();
 static int64_t epoll_process_timers();
-static int64_t epoll_add_timer(jk_timer_t* timer);
+static jk_timer_t* epoll_add_timer(jk_timer_t timer);
 
 ev_backend_t epoll_backend = {
     .name = "epoll",
@@ -292,10 +292,13 @@ static int64_t epoll_del_conn(connection_t* conn) {
     logger_t* logger = current_logger;
     int64_t fd = 0;
 
+    conn->read->enabled = false;
+    conn->write->enabled = false;
+
     if (conn->handle.type == CONN_TYPE_TCP) {
         fd = conn->handle.data.fd;
     } else if (conn->handle.type == CONN_TYPE_UDP) {
-        PANIC("unimplemented");
+        return udp_del_connection(conn);
     } else {
         PANIC("bad connection type");
     }
@@ -304,9 +307,6 @@ static int64_t epoll_del_conn(connection_t* conn) {
         log_perror("epoll_del_conn.epoll_ctl");
         return JK_ERROR;
     }
-    
-    conn->read->enabled = false;
-    conn->write->enabled = false;
 
     return JK_OK;
 }
@@ -321,15 +321,12 @@ static int64_t epoll_process_events() {
     // default timeout
     int timeout = 10000;
     jk_timer_t* next_timer = jk_th_peek(epoll_th);
-    log_info("next timer is: %p", next_timer);
     if (next_timer != NULL) {
         int until_timer_expiry = (int)(next_timer->expiry - jk_now());
         if (until_timer_expiry < timeout) {
             timeout = until_timer_expiry;
         }
     }
-
-    log_info("timeout is: %i", timeout);
 
     // ToDo: add timeout
     int nfds = epoll_wait(
@@ -402,16 +399,20 @@ static int64_t epoll_process_events() {
 int64_t epoll_process_timers() {
     logger_t* logger = current_logger;
 
+    log_trace("epoll_process_timers start");
+    
     int64_t now = jk_now();
+
+    jk_th_dump(epoll_th);
     
     for (;;) {
         jk_timer_t* timer = jk_th_peek(epoll_th);
         if (timer == NULL) {
             break;
         }
-
+        
         CHECK_INVARIANT(timer->handler != NULL, "timer handler is NULL");
-
+        
         if (!timer->enabled) {
             jk_th_pop(epoll_th);
             continue;
@@ -423,6 +424,8 @@ int64_t epoll_process_timers() {
             break;
         }
     }
+    
+    log_trace("epoll_process_timers end");
 
     return JK_OK;
 }
@@ -462,6 +465,6 @@ static int64_t epoll_del_udp_sock(udp_socket_t* sock) {
     return JK_OK;
 }
 
-static int64_t epoll_add_timer(jk_timer_t* timer) {
+static jk_timer_t* epoll_add_timer(jk_timer_t timer) {
     return jk_th_add(epoll_th, timer);
 }
