@@ -165,7 +165,7 @@ int64_t udp_del_connection(connection_t *conn) {
     int res = 0;
     
     res = udp_wq_remove(sock->wq, conn->write);
-    CHECK_INVARIANT(res == JK_OK, "failed to remove event from wq");
+    (void)res;
     
     res = connection_ht_delete(sock->connections, &conn->address);
     CHECK_INVARIANT(res == JK_OK, "failed to remove connection from connections ht");

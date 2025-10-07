@@ -23,6 +23,7 @@ static void stop_echo(event_t *ev);
 static void handle_echo_timeout(void* data);
 
 #define NET_BUFFER_SIZE 4096
+#define ECHO_TIMEOUT 5000
 
 typedef struct {
     buffer_t* buf;
@@ -99,7 +100,7 @@ void handle_echo(event_t *ev) {
             return stop_echo(ev);
         }
 
-        start_new_timer(ctx, 5000, conn);
+        start_new_timer(ctx, ECHO_TIMEOUT, conn);
         conn->data = ctx;
     } 
 
@@ -146,7 +147,7 @@ void handle_echo_read(event_t *ev) {
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
 
-    start_new_timer(ctx, 5000, conn);
+    start_new_timer(ctx, ECHO_TIMEOUT, conn);
 }
 
 void handle_echo_write(event_t *ev) {
@@ -186,7 +187,7 @@ void handle_echo_write(event_t *ev) {
     ev_backend->disable_event(conn->write);
     ev_backend->enable_event(conn->read);
 
-    start_new_timer(ctx, 5000, conn);
+    start_new_timer(ctx, ECHO_TIMEOUT, conn);
 }
 
 void stop_echo(event_t* ev) {

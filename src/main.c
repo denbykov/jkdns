@@ -33,7 +33,8 @@ int main(int argc, char *argv[]) {
     logger_t* logger = current_logger;
 
     ev_backend = &epoll_backend;
-    jk_timer_heap_t* th = jk_th_create(4096);
+    // jk_timer_heap_t* th = jk_th_create(4096);
+    jk_timer_heap_t* th = jk_th_create(16);
     if (th == NULL) {
         log_error("main: failed to create timer heap");
     }

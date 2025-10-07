@@ -399,11 +399,10 @@ static int64_t epoll_process_events() {
 int64_t epoll_process_timers() {
     logger_t* logger = current_logger;
 
-    log_trace("epoll_process_timers start");
+    // log_trace("epoll_process_timers start");
+    // jk_th_debug_dump(epoll_th);
     
     int64_t now = jk_now();
-
-    jk_th_dump(epoll_th);
     
     for (;;) {
         jk_timer_t* timer = jk_th_peek(epoll_th);
@@ -414,9 +413,11 @@ int64_t epoll_process_timers() {
         CHECK_INVARIANT(timer->handler != NULL, "timer handler is NULL");
         
         if (!timer->enabled) {
+            // log_debug("discrarding disabled timer");
             jk_th_pop(epoll_th);
             continue;
         } else if (timer->expiry <= now) {
+            // log_debug("timer expired!");
             timer->handler(timer->data);
             jk_th_pop(epoll_th);
             continue;
@@ -425,7 +426,7 @@ int64_t epoll_process_timers() {
         }
     }
     
-    log_trace("epoll_process_timers end");
+    // log_trace("epoll_process_timers end");
 
     return JK_OK;
 }
