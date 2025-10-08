@@ -154,9 +154,13 @@ connection_t* make_udp_connection(udp_socket_t* sock, address_t* address) {
 }
 
 
-connection_t *tcp_connect(const char* ip, uint16_t port) {
+connection_t *tcp_connect(
+    const char* ip,
+    uint16_t port,
+    void (*read_handler)(event_t *ev), // NOLINT
+    void (*write_handler)(event_t *ev)
+) {
     logger_t *logger = current_logger;
-    settings_t *s = current_settings;
 
     int64_t fd = open_tcp_conn(ip, port);
 
@@ -195,22 +199,15 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
     conn->read  = r_event;
     conn->write = w_event;
 
-    void (*handler)(event_t *ev) = NULL;
-    if (!s->proxy_mode) {
-        log_error("tcp_connect: unable to chose handler for non-proxy mode");
-        goto cleanup;
-    }
-    handler = handle_echo_proxy;
-
     r_event->owner.tag = EV_OWNER_CONNECTION;
     r_event->owner.ptr = conn;
     r_event->write = false;
-    r_event->handler = handler;
+    r_event->handler = read_handler;
     
     w_event->owner.tag = EV_OWNER_CONNECTION;
     w_event->owner.ptr = conn;
     w_event->write = true;
-    w_event->handler = handler;
+    w_event->handler = write_handler;
 
     ev_backend->add_conn(conn);
 
@@ -239,7 +236,9 @@ void close_connection(connection_t *conn) {
 
     if (conn->handle.type == CONN_TYPE_TCP) {
         close_tcp_conn(conn->handle.data.fd);
-    } else if (conn->handle.type != CONN_TYPE_UDP) {
+    } else if (conn->handle.type == CONN_TYPE_UDP) {
+        ;
+    } else {
         PANIC("bad conneciton type");
     }
 

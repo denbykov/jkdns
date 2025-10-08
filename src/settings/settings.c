@@ -11,8 +11,6 @@
 
 #include "logger/logger.h"
 
-#define BOOL_TO_S(arg) ((arg) ? "true" : "false")
-
 settings_t *current_settings = NULL;
 
 void init_settings(settings_t *s) {

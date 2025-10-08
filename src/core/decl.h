@@ -7,6 +7,8 @@
 
 #define UDP_MSG_SIZE 512
 
+#define BOOL_TO_S(arg) ((arg) ? "true" : "false")
+
 typedef struct address_s address_t;
 typedef struct connection_s connection_t;
 typedef struct event_s event_t;
