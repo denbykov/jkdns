@@ -4,6 +4,7 @@
 #include "core/net.h"
 #include "core/connection.h"
 #include "core/buffer.h"
+#include "core/time.h"
 #include "core/udp_socket.h"
 #include "logger/logger.h"
 
@@ -155,6 +156,10 @@ static ssize_t udp_send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     int fd = (int)sock->fd;
     ssize_t sent = 0;
 
+    if (sock->timer) {
+        jk_timer_start(sock->timer, CLIENT_USOCK_TIMEOUT);
+    }
+
     if (conn->address.af == AF_INET) {
         struct sockaddr_in sa4 = {0};
         sa4.sin_family = AF_INET;
@@ -258,6 +263,10 @@ ssize_t udp_recv(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* addr
     struct sockaddr_storage peer_addr;
     memset(&peer_addr, 0, sizeof(peer_addr));
     socklen_t peer_addr_len = sizeof(peer_addr);
+
+    if (sock->timer) {
+        jk_timer_start(sock->timer, CLIENT_USOCK_TIMEOUT);
+    }
 
     ssize_t n = recvfrom(
         fd, buf, count, 0,

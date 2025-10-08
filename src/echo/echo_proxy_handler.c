@@ -107,7 +107,7 @@ echo_context_t* create_context(connection_t* client) {
     conn_type_t conn_type = s->remote_use_udp ? CONN_TYPE_UDP : CONN_TYPE_TCP;
     
     if (conn_type == CONN_TYPE_UDP) {
-        log_trace("using ucp for echo proxy");
+        log_trace("using udp for echo proxy");
     } else {
         log_trace("using tcp for echo proxy");
     }

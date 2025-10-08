@@ -6,6 +6,8 @@
 #include "htt.h"
 #include "udp_wq.h"
 
+#define CLIENT_USOCK_TIMEOUT 10000
+
 struct udp_socket_s {
     int64_t fd;
 

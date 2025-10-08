@@ -1,4 +1,6 @@
+#include "connection/connection.h"
 #include "core/errors.h"
+#include "core/htt.h"
 #include "core/time.h"
 #include "logger/logger.h"
 #include "core/decl.h"
@@ -14,6 +16,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -25,6 +28,9 @@
 static struct epoll_event* event_list;
 static int epoll_fd = -1;
 static jk_timer_heap_t* epoll_th = NULL;
+
+static udp_socket_t* client_usock = NULL;
+static event_t client_udp_event;
 
 static int64_t epoll_init();
 static int64_t epoll_shutdown();
@@ -40,6 +46,7 @@ static void epoll_register_time_heap(jk_timer_heap_t* th);
 static int64_t epoll_process_events();
 static int64_t epoll_process_timers();
 static jk_timer_t* epoll_add_timer(jk_timer_t timer);
+
 
 ev_backend_t epoll_backend = {
     .name = "epoll",
@@ -59,9 +66,11 @@ ev_backend_t epoll_backend = {
     .add_timer = epoll_add_timer
 };
 
+static void epoll_handle_udp_client_timeout(void* data);
+
 static int64_t epoll_init() {
     logger_t* logger = current_logger;
-
+    
     event_list = calloc(EPOLL_MAX_EVENTS, sizeof(struct epoll_event));
     if (event_list == NULL) {
         log_perror("epoll_init.allocate_event_list");
@@ -92,7 +101,7 @@ static int64_t epoll_shutdown() {
 static int64_t epoll_add(event_t* ev, int64_t fd) {
     logger_t* logger = current_logger;
 
-    struct epoll_event event;
+    struct epoll_event event = {0};
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;
     } else {
@@ -177,7 +186,7 @@ static int64_t epoll_del_event(event_t* ev) {
 static int64_t epoll_enable(event_t* ev, int64_t fd) {
     logger_t* logger = current_logger;
 
-    struct epoll_event event;
+    struct epoll_event event = {0};
     if (ev->write) {
         event.events = EPOLLOUT | EPOLLET;
     } else {
@@ -225,7 +234,7 @@ static int64_t epoll_enable_event(event_t* ev) {
 static int64_t epoll_disable(event_t* ev, int64_t fd) {
     logger_t* logger = current_logger;
 
-    struct epoll_event event;
+    struct epoll_event event = {0};
     event.events = 0;
     event.data.ptr = ev;
 
@@ -265,6 +274,18 @@ static int64_t epoll_disable_event(event_t* ev) {
     return JK_ERROR;
 }
 
+void epoll_handle_udp_client_timeout(void* data) {
+    logger_t* logger = current_logger;
+
+    log_trace("epoll_handle_udp_client_timeout");
+
+    udp_socket_t* sock = data;
+
+    epoll_del_udp_sock(sock);
+    release_udp_socket(client_usock);
+    client_usock = NULL;
+}
+
 static int64_t epoll_add_conn(connection_t* conn) {
     logger_t* logger = current_logger;
     int64_t fd = 0;
@@ -278,12 +299,63 @@ static int64_t epoll_add_conn(connection_t* conn) {
 
         conn->handle.data.fd = fd;
     } else if (conn->handle.type == CONN_TYPE_UDP) {
-        PANIC("unimplemented");
+        if (client_usock == NULL) {
+            udp_socket_t* sock = make_client_udp_socket();
+            if (sock == NULL) {
+                log_error("epoll_add_conn: make_client_udp_socket failed");
+                return JK_ERROR;
+            }
+
+            init_event(&client_udp_event);
+            client_udp_event.owner.tag = EV_OWNER_USOCK;
+            client_udp_event.owner.ptr = sock;
+            client_udp_event.write = false;
+            client_udp_event.handler = client_udp_ev_handler;
+
+            sock->ev = &client_udp_event;
+
+            int64_t res = epoll_add_udp_sock(sock);
+            if (res != JK_OK) {
+                release_udp_socket(sock);
+                log_error("epoll_add_conn: epoll_add_udp_sock failed");
+                return JK_ERROR;
+            }
+
+            jk_timer_t timer;
+            jk_timer_start(&timer, CLIENT_USOCK_TIMEOUT);
+            timer.handler = epoll_handle_udp_client_timeout;
+            timer.data = sock;
+            
+            jk_timer_t* timer_p = epoll_add_timer(timer);
+            if (timer_p == NULL) {
+                release_udp_socket(sock);
+                log_perror("epoll_add_conn: epoll_add_timer failed");
+                return JK_ERROR;
+            }
+
+            sock->timer = timer_p;
+
+            client_usock = sock;
+        }
+
+        jk_timer_start(client_usock->timer, CLIENT_USOCK_TIMEOUT);
+
+        connection_ht_t* ht = client_usock->connections;
+
+        int64_t res = connection_ht_insert(ht, &conn->address, conn);
+        if (res != JK_OK) {
+            log_error("epoll_add_conn: failed to insert connection to the udp ht");
+            return res;
+        }
+
+        conn->handle.data.sock = client_usock;
+
+        return JK_OK;
     } else {
         PANIC("bad connection type");
     }
 
-    struct epoll_event event;
+    struct epoll_event event = {0};
         
     event.events = 0;
 
@@ -441,11 +513,11 @@ int64_t epoll_process_timers() {
 static int64_t epoll_add_udp_sock(udp_socket_t* sock) {
     logger_t* logger = current_logger;
 
-    CHECK_INVARIANT(sock->ev != false, "event is NULL");
+    CHECK_INVARIANT(sock->ev != NULL, "event is NULL");
     CHECK_INVARIANT(sock->ev->enabled == false, "event is already enabled");
 
     int64_t fd = sock->fd;
-    struct epoll_event event;
+    struct epoll_event event = {0};
     event.events = EPOLLIN | EPOLLOUT | EPOLLET;
     event.data.ptr = sock->ev;
     sock->ev->enabled = true;
