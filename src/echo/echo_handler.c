@@ -31,6 +31,7 @@ typedef struct {
 } echo_context_t;
 
 static void start_new_timer(echo_context_t* ctx, int timeout, connection_t* conn);
+static void reschedule_timer(echo_context_t* ctx, int timeout, connection_t* conn);
 
 static echo_context_t* create_context();
 static void destroy_context(echo_context_t* ctx);
@@ -147,7 +148,7 @@ void handle_echo_read(event_t *ev) {
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
 
-    start_new_timer(ctx, ECHO_TIMEOUT, conn);
+    reschedule_timer(ctx, ECHO_TIMEOUT, conn);
 }
 
 void handle_echo_write(event_t *ev) {
@@ -187,7 +188,7 @@ void handle_echo_write(event_t *ev) {
     ev_backend->disable_event(conn->write);
     ev_backend->enable_event(conn->read);
 
-    start_new_timer(ctx, ECHO_TIMEOUT, conn);
+    reschedule_timer(ctx, ECHO_TIMEOUT, conn);
 }
 
 void stop_echo(event_t* ev) {
@@ -244,4 +245,15 @@ void start_new_timer(echo_context_t* ctx, int timeout, connection_t* conn) {
     timer.data = conn;
 
     ctx->timer = ev_backend->add_timer(timer);
+}
+
+void reschedule_timer(echo_context_t* ctx, int timeout, connection_t* conn) {
+    logger_t *logger = current_logger;
+
+    CHECK_INVARIANT(ctx->timer != NULL, "ctx->timer is NULL");
+    CHECK_INVARIANT(ctx->timer->enabled == true, "ctx->timer is disabled");
+    
+    jk_timer_start(ctx->timer, timeout);
+    ctx->timer->handler = handle_echo_timeout;
+    ctx->timer->data = conn;
 }
