@@ -12,9 +12,11 @@
 #include <echo/echo_handler.h>
 #include <echo/echo_proxy_handler.h>
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
 
 void handle_new_tcp_connection(int64_t fd) {
     connection_t* conn = NULL;
@@ -120,7 +122,6 @@ connection_t* make_udp_connection(udp_socket_t* sock, address_t* address) {
     conn->write = w_event;
     conn->error = false;
 
-    CHECK_INVARIANT(!s->proxy_mode, "Proxy mode is not supported yet");
     void (*handler)(event_t *ev) = s->proxy_mode ? handle_echo_proxy: handle_echo;
 
     r_event->owner.tag = EV_OWNER_CONNECTION;
@@ -153,48 +154,44 @@ connection_t* make_udp_connection(udp_socket_t* sock, address_t* address) {
     exit(1);
 }
 
-
-connection_t *tcp_connect(
+connection_t *make_client_connection(
+    conn_type_t type,
     const char* ip,
     uint16_t port,
     void (*read_handler)(event_t *ev), // NOLINT
     void (*write_handler)(event_t *ev)
 ) {
     logger_t *logger = current_logger;
-
-    int64_t fd = open_tcp_conn(ip, port);
-
+    
     connection_t* conn = NULL;
     event_t* r_event = NULL;
     event_t* w_event = NULL;
-
-    if (fd == JK_ERROR) {
-        log_perror("tcp_connect: failed to open tcp connection");
-        goto cleanup;
-    }
     
     conn = calloc(1, sizeof(connection_t));
     if (conn == NULL) {
-        log_perror("tcp_connect.allocate_connection");
+        log_perror("make_client_connection.allocate_connection");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        log_perror("tcp_connect.allocate_read_event");
+        log_perror("make_client_connection.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
 
     w_event = calloc(1, sizeof(event_t));
     if (conn == NULL) {
-        log_perror("tcp_connect.allocate_write_event");
+        log_perror("make_client_connection.allocate_write_event");
         goto cleanup;
     }
     init_event(w_event);
+    
+    int64_t res = fill_address(&conn->address, ip, port);
 
-    conn->handle.type = CONN_TYPE_TCP;
-    conn->handle.data.fd = fd;
+    CHECK_INVARIANT(res == JK_OK, "fill_address failed!");
+    
+    conn->handle.type = type;
 
     conn->read  = r_event;
     conn->write = w_event;
@@ -209,13 +206,15 @@ connection_t *tcp_connect(
     w_event->write = true;
     w_event->handler = write_handler;
 
-    ev_backend->add_conn(conn);
+    res = ev_backend->add_conn(conn);
+    if (res != JK_OK) {
+        log_error("make_client_connection: add_conn failed");
+        goto cleanup;
+    } 
 
     return conn;
 
     cleanup:
-    close_tcp_conn(fd);
-
     if (conn != NULL) {
         free(conn);
     }

@@ -37,7 +37,4 @@ struct connection_s {
     event_t *write;
 
     uint32_t error:1;
-
-    // recv_pt recv;
-    // send_pt send;
 };

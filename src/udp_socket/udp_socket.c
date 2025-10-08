@@ -13,6 +13,7 @@
 
 static void handle_reads(udp_socket_t* sock);
 static void handle_writes(udp_socket_t* sock);
+static void client_handle_reads(udp_socket_t* sock);
 
 void udp_ev_handler(event_t* ev) {
     logger_t* logger = current_logger;
@@ -24,6 +25,23 @@ void udp_ev_handler(event_t* ev) {
     
     if (sock->readable) {
         handle_reads(sock);
+    }
+
+    if (sock->writable) {
+        handle_writes(sock);
+    }
+}
+
+void client_udp_ev_handler(event_t* ev) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(ev->owner.tag == EV_OWNER_USOCK, "event owner is not a udp socket");
+    udp_socket_t* sock = ev->owner.ptr;
+
+    CHECK_INVARIANT(sock->readable || sock->writable, "udp socket is neither writable or readable");
+    
+    if (sock->readable) {
+        client_handle_reads(sock);
     }
 
     if (sock->writable) {
@@ -100,6 +118,49 @@ static void handle_writes(udp_socket_t* sock) {
     } 
 }
 
+static void client_handle_reads(udp_socket_t* sock) {
+    logger_t* logger = current_logger;
+
+    address_t address;
+    buffer_t *buf = &sock->last_read_buf;
+    connection_ht_t* ht = sock->connections;
+
+    for (;;) {
+        ssize_t read = udp_recv(
+            sock,
+            buf->data,
+            buf->capacity,
+            &address);
+
+        CHECK_INVARIANT(read != 0, "should never happen");
+
+        if (read == JK_WOULD_BLOCK) {
+            break;
+        }
+        
+        if (read == JK_ERROR) {
+            // ToDo: may lead to endless loop, consider fixing
+            log_warn("handle_reads: read failure");
+            continue;
+        }
+
+        buf->taken = read;
+        buf->capacity -= read;
+
+        connection_t* conn = connection_ht_lookup(ht, &address);
+        if (conn == NULL) {
+            log_warn("handle_reads: discarding read from the unknown host");
+            continue;
+        }
+        
+        if (conn->read->enabled) {
+            conn->read->handler(conn->read);
+        } else {
+            log_warn("handle_reads: discarding data for unarmed event");
+        }
+    }
+}
+
 int64_t udp_add_event(event_t* ev, connection_t* conn) {
     logger_t* logger = current_logger;
 
@@ -169,6 +230,23 @@ int64_t udp_del_connection(connection_t *conn) {
     
     res = connection_ht_delete(sock->connections, &conn->address);
     CHECK_INVARIANT(res == JK_OK, "failed to remove connection from connections ht");
+
+    return JK_OK;
+}
+
+int64_t udp_add_connection(udp_socket_t* sock, connection_t *conn) {
+    logger_t* logger = current_logger;
+
+    CHECK_INVARIANT(sock != NULL, "conneciton is NULL");
+    CHECK_INVARIANT(conn != NULL, "conneciton is NULL");
+
+    int res = 0;
+    
+    res = connection_ht_insert(sock->connections, &conn->address, conn);
+    CHECK_INVARIANT(res == JK_OK, "failed to add connection to the connections ht");
+
+    conn->handle.type = CONN_TYPE_UDP;
+    conn->handle.data.sock = sock;
 
     return JK_OK;
 }

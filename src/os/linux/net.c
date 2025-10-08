@@ -191,7 +191,7 @@ static ssize_t udp_send_buf(connection_t *conn, uint8_t* buf, size_t count) {
     return sent;
 }
 
-int64_t open_tcp_conn(const char* ip, uint16_t port) {
+int64_t open_tcp_conn(address_t* address) {
     logger_t* logger = current_logger;
 
     int fd = 0;
@@ -211,18 +211,27 @@ int64_t open_tcp_conn(const char* ip, uint16_t port) {
         close(fd);
         return JK_ERROR;
     }
+
+    int ret = 0;
     
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(port);
-    
-    if (inet_pton(AF_INET, ip, &serv_addr.sin_addr) <= 0) {
-        log_perror("open_tcp_conn.inet_pton");
-        close(fd);
-        return JK_ERROR;
+    if (address->af == AF_INET) {
+        struct sockaddr_in sa4 = {0};
+        sa4.sin_family = AF_INET;
+        sa4.sin_port = htons(address->src_port);
+        sa4.sin_addr = address->src.src_v4;
+
+        ret = connect(fd, (struct sockaddr*)&sa4, sizeof(sa4));
+    } else if (address->af == AF_INET6) {
+        struct sockaddr_in6 sa6 = {0};
+        sa6.sin6_family = AF_INET6;
+        sa6.sin6_port = htons(address->src_port);
+        sa6.sin6_addr = address->src.src_v6;
+        
+        ret = connect(fd, (struct sockaddr*)&sa6, sizeof(sa6));
+    } else {
+        PANIC("Unrecognized address family");
     }
     
-    int ret = connect(fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
     if (ret < 0 && errno != EINPROGRESS) {
         log_perror("open_tcp_conn.connect");
         close(fd);

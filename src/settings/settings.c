@@ -26,6 +26,7 @@ void init_settings(settings_t *s) {
     s->proxy_mode = false;
     s->remote_ip = NULL;
     s->remote_port = 0;
+    s->remote_use_udp = false;
 }
 
 static int64_t handle_port(struct settings_s *s, const char *val) {
@@ -61,6 +62,13 @@ static int64_t handle_remote_port(struct settings_s *s, const char *val) {
         return JK_ERROR;
     }
     s->remote_port = strtoll(val, NULL, 10);
+
+    return JK_OK;
+}
+
+static int64_t handle_remote_use_udp(struct settings_s *s, const char *val) {
+    (void)val; // unused
+    s->remote_use_udp = true;
 
     return JK_OK;
 }
@@ -102,8 +110,9 @@ static option_t options[] = {
     {"log-level",  'l', OPT_REQUIRED, handle_log_level},
     {"port",  'p', OPT_REQUIRED, handle_port},
     {"proxy",  0 , OPT_NONE, handle_proxy},
-    {"remote-ip",  'p', OPT_REQUIRED, handle_remote_ip},
-    {"remote-port",  'p', OPT_REQUIRED, handle_remote_port},
+    {"remote-ip",  0, OPT_REQUIRED, handle_remote_ip},
+    {"remote-port",  0, OPT_REQUIRED, handle_remote_port},
+    {"remote-use-udp",  0, OPT_NONE, handle_remote_use_udp},
     {0, 0, OPT_NONE, 0} // terminator
 };
 
@@ -183,6 +192,7 @@ void dump_settings(FILE *f, settings_t *s) {
     fprintf(f, "%-*s : %s\n",  max_len, "proxy-mode", BOOL_TO_S(s->proxy_mode));
     fprintf(f, "%-*s : %s\n",  max_len, "remote-ip", s->remote_ip);
     fprintf(f, "%-*s : %u\n",  max_len, "remote-port", s->remote_port);
+    fprintf(f, "%-*s : %s\n",  max_len, "remote-use-udp", BOOL_TO_S(s->remote_use_udp));
     fflush(f);
 
     // setvbuf(f, NULL, _IOLBF, 0);

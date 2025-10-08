@@ -7,6 +7,7 @@
 #include "core/listener.h"
 #include "core/connection.h"
 #include "core/udp_socket.h"
+#include "core/net.h"
 #include "udp_socket/udp_socket.h"
 
 #include <errno.h>
@@ -269,7 +270,13 @@ static int64_t epoll_add_conn(connection_t* conn) {
     int64_t fd = 0;
 
     if (conn->handle.type == CONN_TYPE_TCP) {
-        fd = conn->handle.data.fd;
+        fd = open_tcp_conn(&conn->address);
+        if (fd == JK_ERROR) {
+            log_perror("epoll_add_conn: failed to open tcp connection");
+            return JK_ERROR;
+        }
+
+        conn->handle.data.fd = fd;
     } else if (conn->handle.type == CONN_TYPE_UDP) {
         PANIC("unimplemented");
     } else {

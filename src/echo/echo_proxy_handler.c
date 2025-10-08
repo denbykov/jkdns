@@ -1,4 +1,5 @@
 #include "echo_proxy_handler.h"
+#include "core/connection.h"
 #include "core/time.h"
 #include "logger/logger.h"
 #include "core/errors.h"
@@ -103,11 +104,21 @@ echo_context_t* create_context(connection_t* client) {
     read_handler = handle_echo_proxy;
     write_handler = handle_echo_proxy;
 
-    connection_t *remote = tcp_connect(
-        s->remote_ip,
-        s->remote_port,
-        read_handler,
-        write_handler);
+    conn_type_t conn_type = s->remote_use_udp ? CONN_TYPE_UDP : CONN_TYPE_TCP;
+    
+    if (conn_type == CONN_TYPE_UDP) {
+        log_trace("using ucp for echo proxy");
+    } else {
+        log_trace("using tcp for echo proxy");
+    }
+    
+    connection_t *remote = 
+        make_client_connection(
+            conn_type,
+            s->remote_ip,
+            s->remote_port,
+            read_handler,
+            write_handler);
     
     ctx->remote = remote;
     remote->data = ctx;

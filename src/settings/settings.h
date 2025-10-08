@@ -14,6 +14,7 @@ struct settings_s {
     bool        proxy_mode;
     const char* remote_ip;
     uint16_t    remote_port;
+    bool        remote_use_udp;
 };
 
 extern settings_t *current_settings;
