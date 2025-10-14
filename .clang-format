@@ -1,0 +1,204 @@
+---
+BasedOnStyle: Microsoft
+AccessModifierOffset: -2
+AlignAfterOpenBracket: BlockIndent
+AlignArrayOfStructures: Left
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+AlignConsecutiveBitFields:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCaseArrows: true
+  AlignCaseColons: true
+AlignEscapedNewlines: LeftWithLastLine
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowBreakBeforeNoexceptSpecifier: Never
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseExpressionOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AttributeMacros:
+  - __capability
+BinPackArguments: false
+BinPackParameters: OnePerLine
+BitFieldColonSpacing: Before
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+BreakAdjacentStringLiterals: true
+BreakAfterAttributes: Always
+BreakAfterReturnType: ExceptShortType
+BreakArrays: true
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BreakBeforeConceptDeclarations: Always
+BreakBeforeInlineASMColon: OnlyMultiline
+BreakBeforeTernaryOperators: true
+BreakBinaryOperations: OnePerLine
+BreakConstructorInitializers: AfterColon
+BreakFunctionDefinitionParameters: false
+BreakInheritanceList: AfterColon
+BreakStringLiterals: true
+ColumnLimit: 80
+CommentPragmas: "^ IWYU pragma:"
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+DisableFormat: false
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+EnumTrailingComma: Remove
+ExperimentalAutoDetectBinPacking: false
+ForEachMacros:
+  - foreach
+  - Q_FOREACH
+  - BOOST_FOREACH
+IfMacros:
+  - KJ_IF_MAYBE
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex: ^"(llvm|llvm-c|clang|clang-c)/
+    Priority: 2
+    SortPriority: 2
+    CaseSensitive: false
+  - Regex: ^((<|")(gtest|gmock|isl|json)/)
+    Priority: 3
+    CaseSensitive: false
+  - Regex: <[[:alnum:].]+>
+    Priority: 4
+    CaseSensitive: false
+  - Regex: .*
+    CaseSensitive: false
+    Priority: 1
+    SortPriority: 0
+IncludeIsMainRegex: (_test)?$
+IncludeIsMainSourceRegex: ""
+IndentAccessModifiers: false
+IndentCaseBlocks: false
+IndentCaseLabels: true
+IndentExternBlock: AfterExternBlock
+IndentGotoLabels: true
+IndentPPDirectives: BeforeHash
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+InsertBraces: true
+InsertNewlineAtEOF: true
+InsertTrailingCommas: None
+IntegerLiteralSeparator:
+  Binary: 4
+  BinaryMinDigits: 5
+  Decimal: 3
+  DecimalMinDigits: 5
+  Hex: 2
+  HexMinDigits: 4
+KeepEmptyLines:
+  AtEndOfFile: true
+  AtStartOfBlock: false
+  AtStartOfFile: false
+LineEnding: CRLF
+MainIncludeChar: Any
+MaxEmptyLinesToKeep: 2
+PPIndentWidth: -1
+PackConstructorInitializers: NextLineOnly
+PenaltyBreakAssignment: 100
+PenaltyBreakBeforeFirstCallParameter: 1
+PenaltyBreakBeforeMemberAccess: 10000
+PenaltyBreakComment: 100
+PenaltyBreakFirstLessLess: 1
+PenaltyBreakOpenParenthesis: 1
+PenaltyBreakScopeResolution: 1
+PenaltyBreakString: 100
+PenaltyExcessCharacter: 100000000
+PenaltyIndentedWhitespace: 1
+PenaltyReturnTypeOnItsOwnLine: 10000
+PointerAlignment: Left
+QualifierAlignment: Left
+ReferenceAlignment: Right
+ReflowComments: true
+RemoveBracesLLVM: false
+RemoveEmptyLinesInUnwrappedLines: true
+RemoveParentheses: Leave
+RemoveSemicolon: false
+SeparateDefinitionBlocks: Always
+SkipMacroDefinitionBody: false
+SortIncludes: Never
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAroundPointerQualifiers: After
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeJsonColon: false
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterForeachMacros: false
+  AfterFunctionDeclarationName: false
+  AfterFunctionDefinitionName: false
+  AfterIfMacros: true
+  BeforeNonEmptyParentheses: false
+SpaceBeforeSquareBrackets: false
+SpacesBeforeTrailingComments: 1
+SpacesInContainerLiterals: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+SpacesInParens: Never
+SpacesInParensOptions:
+  ExceptDoubleParentheses: false
+  InConditionalStatements: false
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: false
+SpacesInSquareBrackets: false
+TabWidth: 4
+UseTab: Never
+BracedInitializerIndentWidth: 4

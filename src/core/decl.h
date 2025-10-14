@@ -1,9 +1,9 @@
 #pragma once
 
 #include <stdint.h>
-#include <unistd.h>
-
 #include "errors.h"
+
+typedef uint64_t ssize_t;
 
 typedef struct connection_s connection_t;
 typedef struct event_s event_t;
