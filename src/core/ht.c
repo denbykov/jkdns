@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <unistd.h>
 
 #define CHECK_INVARIANT_HTE(cond, msg) \
     CHECK_INVARIANT(cond, "%s: %s", hte->ht_name, msg)
