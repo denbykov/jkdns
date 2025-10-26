@@ -9,10 +9,11 @@
 #include "core/event.h"
 #include "core/ev_backend.h"
 #include "core/listener.h"
+#include "core/udp_socket.h"
 #include "logger/logger.h"
+#include "udp_socket/udp_socket.h"
 
 #include "os/windows/winsocket.h"
-
 
 typedef struct
 {
@@ -26,12 +27,14 @@ static connections_information_t* connectionsInformation;
 
 static int64_t wsaeventselect_init();
 static int64_t wsaeventselect_shutdown();
-static int64_t wsaeventselect_add_event(event_t* ev);
-static int64_t wsaeventselect_del_event(event_t* ev);
-static int64_t wsaeventselect_enable_event(event_t* ev);
-static int64_t wsaeventselect_disable_event(event_t* ev);
-static int64_t wsaeventselect_add_conn(connection_t* conn);
-static int64_t wsaeventselect_del_conn(connection_t* conn);
+static int64_t wsaeventselect_add_event(event_t* p_eventStruct);
+static int64_t wsaeventselect_del_event(event_t* p_eventStruct);
+static int64_t wsaeventselect_enable_event(event_t* p_eventStruct);
+static int64_t wsaeventselect_disable_event(event_t* p_eventStruct);
+static int64_t wsaeventselect_add_conn(connection_t* p_connectionStruct);
+static int64_t wsaeventselect_del_conn(connection_t* p_connectionStruct);
+static int64_t wsaeventselect_add_udp_sock(udp_socket_t* p_socketStruct);
+static int64_t wsaeventselect_del_udp_sock(udp_socket_t* p_socketStruct);
 static int64_t wsaeventselect_process_events();
 static int64_t GetEventIndex(SOCKET socketDescriptor);
 
@@ -81,61 +84,18 @@ static int64_t wsaeventselect_shutdown()
     return JK_OK;
 }
 
-static int64_t wsaeventselect_add_event(event_t* ev)
+static int64_t wsaeventselect_tcp_add_event(
+    event_t* p_eventStruct,
+    SOCKET   socketDescriptor,
+    long     networkEventsToRegister
+)
 {
     logger_t* logger = current_logger;
 
-    int64_t eventIndex              = 0;
-    SOCKET  socketDescriptor        = INVALID_SOCKET;
-    long    networkEventsToRegister = 0;
-
+    int64_t  eventIndex = 0;
     WSAEVENT wsaEvent;
 
-
-    if (connectionsInformation->count >= WSAEVENTSELECT_MAX_EVENTS)
-    {
-        log_perror("wsaeventselect_add_event: No free event slots available");
-
-
-        return JK_ERROR;
-    };
-
-
-    switch (ev->owner.tag)
-    {
-        case EV_OWNER_LISTENER:
-            socketDescriptor = ((listener_t*)ev->owner.ptr)->fd;
-
-            networkEventsToRegister = FD_ACCEPT | FD_CLOSE;
-
-            break;
-        case EV_OWNER_CONNECTION:
-            socketDescriptor = ((connection_t*)ev->owner.ptr)->fd;
-
-            win_connection_t* current_connection = ev->owner.ptr;
-            if (ev->write && current_connection->writable)
-            {
-                ev->handler(ev);
-            }
-            // store previous flags in a unified array of
-            // sockets/events/connections
-            if (ev->write)
-            {
-                networkEventsToRegister = FD_WRITE | FD_CLOSE;
-            }
-            else
-            {
-                networkEventsToRegister = FD_READ | FD_CLOSE;
-            }
-
-            break;
-        default:
-            PANIC("unknown event owner");
-    }
-
-
     eventIndex = GetEventIndex(socketDescriptor);
-
     if (eventIndex == JK_ERROR)
     {
         wsaEvent = WSACreateEvent();
@@ -143,9 +103,8 @@ static int64_t wsaeventselect_add_event(event_t* ev)
         if (wsaEvent == WSA_INVALID_EVENT)
         {
             log_perror(
-                "wsaeventselect_add_event: Event creation for socket failed "
-                "with "
-                "error %d",
+                "wsaeventselect_tcp_add_event: Event creation for socket "
+                "failed with error %d",
                 WSAGetLastError()
             );
 
@@ -157,7 +116,8 @@ static int64_t wsaeventselect_add_event(event_t* ev)
         connectionsInformation->wsaEvents[connectionsInformation->count] =
             wsaEvent;
 
-        connectionsInformation->events[connectionsInformation->count] = ev;
+        connectionsInformation->events[connectionsInformation->count] =
+            p_eventStruct;
 
         connectionsInformation->count++;
     }
@@ -174,7 +134,7 @@ static int64_t wsaeventselect_add_event(event_t* ev)
     if (registerEventResult == SOCKET_ERROR)
     {
         log_perror(
-            "wsaeventselect_add_event: Registering new event failed with "
+            "wsaeventselect_tcp_add_event: Registering new event failed with "
             "error %d",
             WSAGetLastError()
         );
@@ -184,47 +144,110 @@ static int64_t wsaeventselect_add_event(event_t* ev)
     }
     else
     {
-        log_info("wsaeventselect_add_event: New event was registered!");
+        log_info("wsaeventselect_tcp_add_event: New event was registered!");
     }
 
 
-    ev->enabled = true;
+    p_eventStruct->enabled = true;
 
 
-    connectionsInformation->events[connectionsInformation->count - 1] = ev;
+    connectionsInformation->events[connectionsInformation->count - 1] =
+        p_eventStruct;
 
 
     return JK_OK;
 }
 
-static int64_t wsaeventselect_del_event(event_t* ev)
+static int64_t wsaeventselect_add_event(event_t* p_eventStruct)
 {
     logger_t* logger = current_logger;
 
-    SOCKET socketDescriptor = INVALID_SOCKET;
+    SOCKET socketDescriptor        = INVALID_SOCKET;
+    long   networkEventsToRegister = 0;
 
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
+    if (connectionsInformation->count >= WSAEVENTSELECT_MAX_EVENTS)
+    {
+        log_perror("wsaeventselect_add_event: No free event slots available");
 
 
-    switch (ev->owner.tag)
+        return JK_ERROR;
+    };
+
+
+    switch (p_eventStruct->owner.tag)
     {
         case EV_OWNER_LISTENER:
-            socketDescriptor = ((listener_t*)ev->owner.ptr)->fd;
-            break;
+            socketDescriptor = ((listener_t*)p_eventStruct->owner.ptr)->fd;
+
+            networkEventsToRegister = FD_ACCEPT | FD_CLOSE;
+
+
+            return wsaeventselect_tcp_add_event(
+                p_eventStruct,
+                socketDescriptor,
+                networkEventsToRegister
+            );
         case EV_OWNER_CONNECTION:
-            socketDescriptor = ((connection_t*)ev->owner.ptr)->fd;
+            connection_t* p_currentConnection = p_eventStruct->owner.ptr;
+
+            if (p_currentConnection->handle.type == CONN_TYPE_TCP)
+            {
+                socketDescriptor = p_currentConnection->handle.data.fd;
+
+
+                if ((p_eventStruct->write == true)
+                    && (((win_connection_t*)p_currentConnection)->writable
+                        == true))
+                {
+                    p_eventStruct->handler(p_eventStruct);
+                }
+                if (p_eventStruct->write == true)
+                {
+                    networkEventsToRegister = FD_WRITE | FD_CLOSE;
+                }
+                else
+                {
+                    networkEventsToRegister = FD_READ | FD_CLOSE;
+                }
+
+
+                return wsaeventselect_tcp_add_event(
+                    p_eventStruct,
+                    socketDescriptor,
+                    networkEventsToRegister
+                );
+            }
+            else if (p_currentConnection->handle.type == CONN_TYPE_UDP)
+            {
+                return udp_add_event(p_eventStruct, p_currentConnection);
+            }
+            else
+            {
+                PANIC("bad connection type");
+            }
+
+
             break;
         default:
             PANIC("unknown event owner");
     }
 
 
-    int64_t eventIndex = GetEventIndex(socketDescriptor);
+    return JK_OK;
+}
 
+static int64_t wsaeventselect_tcp_del_event(
+    event_t* p_eventStruct,
+    SOCKET   socketDescriptor
+)
+{
+    logger_t* logger = current_logger;
+
+    int64_t eventIndex = GetEventIndex(socketDescriptor);
     if (eventIndex == JK_ERROR)
     {
-        log_perror("wsaeventselect_del_event: Couldn't find socket index");
+        log_perror("wsaeventselect_tcp_del_event: Couldn't find socket index");
         return JK_ERROR;
     }
 
@@ -235,12 +258,12 @@ static int64_t wsaeventselect_del_event(event_t* ev)
             == TRUE)
         {
             log_info(
-                "wsaeventselect_del_event: WSACloseEvent() was successful!"
+                "wsaeventselect_tcp_del_event: WSACloseEvent() was successful!"
             );
         }
         else
         {
-            log_perror("wsaeventselect_del_event: WSACloseEvent() failed!");
+            log_perror("wsaeventselect_tcp_del_event: WSACloseEvent() failed!");
         }
     }
 
@@ -269,58 +292,53 @@ static int64_t wsaeventselect_del_event(event_t* ev)
     connectionsInformation->count--;
 
 
-    ev->enabled = false;
+    p_eventStruct->enabled = false;
 
 
-    connectionsInformation->events[eventIndex] = ev;
+    connectionsInformation->events[eventIndex] = p_eventStruct;
 
 
     return JK_OK;
 }
 
-static int64_t wsaeventselect_enable_event(event_t* ev)
+static int64_t wsaeventselect_del_event(event_t* p_eventStruct)
 {
     logger_t* logger = current_logger;
 
-    SOCKET socketDescriptor        = INVALID_SOCKET;
-    long   networkEventsToRegister = 0;
+    SOCKET socketDescriptor = INVALID_SOCKET;
 
 
-    CHECK_INVARIANT(ev->enabled == false, "event is already enabled");
+    CHECK_INVARIANT(p_eventStruct->owner.ptr != NULL, "event owner is NULL");
 
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
-
-
-    switch (ev->owner.tag)
+    switch (p_eventStruct->owner.tag)
     {
         case EV_OWNER_LISTENER:
-            socketDescriptor = ((listener_t*)ev->owner.ptr)->fd;
-
-            networkEventsToRegister = FD_ACCEPT | FD_CLOSE;
-
+            socketDescriptor = ((listener_t*)p_eventStruct->owner.ptr)->fd;
             break;
         case EV_OWNER_CONNECTION:
-            socketDescriptor = ((connection_t*)ev->owner.ptr)->fd;
+            connection_t* p_currentConnection = p_eventStruct->owner.ptr;
 
-            if (ev->write && ((win_connection_t*)ev->owner.ptr)->writable)
+
+            if (p_currentConnection->handle.type == CONN_TYPE_TCP)
             {
-                ev->enabled = true;
+                socketDescriptor = p_currentConnection->handle.data.fd;
 
 
-                ev->handler(ev);
-
-
-                return JK_OK;
+                return wsaeventselect_tcp_del_event(
+                    p_eventStruct,
+                    socketDescriptor
+                );
             }
-            else if (ev->write)
+            else if (p_currentConnection->handle.type == CONN_TYPE_UDP)
             {
-                networkEventsToRegister = FD_WRITE | FD_CLOSE;
+                return udp_del_event(p_eventStruct, p_currentConnection);
             }
             else
             {
-                networkEventsToRegister = FD_READ | FD_CLOSE;
+                PANIC("bad connection type");
             }
+
 
             break;
         default:
@@ -328,11 +346,23 @@ static int64_t wsaeventselect_enable_event(event_t* ev)
     }
 
 
-    int64_t eventIndex = GetEventIndex(socketDescriptor);
+    return JK_OK;
+}
 
+static int64_t wsaeventselect_tcp_enable_event(
+    event_t* p_eventStruct,
+    SOCKET   socketDescriptor,
+    long     networkEventsToRegister
+)
+{
+    logger_t* logger = current_logger;
+
+    int64_t eventIndex = GetEventIndex(socketDescriptor);
     if (eventIndex == JK_ERROR)
     {
-        log_perror("wsaeventselect_enable_event: Couldn't find socket index");
+        log_perror(
+            "wsaeventselect_tcp_enable_event: Couldn't find socket index"
+        );
         return JK_ERROR;
     }
 
@@ -346,8 +376,8 @@ static int64_t wsaeventselect_enable_event(event_t* ev)
     if (registerEventResult == SOCKET_ERROR)
     {
         log_perror(
-            "wsaeventselect_enable_event: Registering new event failed with "
-            "error %d",
+            "wsaeventselect_tcp_enable_event: Registering new event failed "
+            "with error %d",
             WSAGetLastError()
         );
 
@@ -356,70 +386,190 @@ static int64_t wsaeventselect_enable_event(event_t* ev)
     }
     else
     {
-        log_info("wsaeventselect_enable_event: New event was registered!");
+        log_info("wsaeventselect_tcp_enable_event: New event was registered!");
     }
 
 
-    ev->enabled = true;
+    p_eventStruct->enabled = true;
 
 
-    connectionsInformation->events[eventIndex] = ev;
+    connectionsInformation->events[eventIndex] = p_eventStruct;
 
 
     return JK_OK;
 }
 
-static int64_t wsaeventselect_disable_event(event_t* ev)
+static int64_t wsaeventselect_enable_event(event_t* p_eventStruct)
 {
     logger_t* logger = current_logger;
 
-    SOCKET socketDescriptor = INVALID_SOCKET;
+    SOCKET socketDescriptor        = INVALID_SOCKET;
+    long   networkEventsToRegister = 0;
 
 
-    CHECK_INVARIANT(ev->enabled == true, "event is already disabled");
+    CHECK_INVARIANT(
+        p_eventStruct->enabled == false,
+        "event is already enabled"
+    );
 
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
+    CHECK_INVARIANT(p_eventStruct->owner.ptr != NULL, "event owner is NULL");
 
 
-    switch (ev->owner.tag)
+    switch (p_eventStruct->owner.tag)
     {
         case EV_OWNER_LISTENER:
-            socketDescriptor = ((listener_t*)ev->owner.ptr)->fd;
-            break;
+            socketDescriptor = ((listener_t*)p_eventStruct->owner.ptr)->fd;
+
+            networkEventsToRegister = FD_ACCEPT | FD_CLOSE;
+
+
+            return wsaeventselect_tcp_enable_event(
+                p_eventStruct,
+                socketDescriptor,
+                networkEventsToRegister
+            );
         case EV_OWNER_CONNECTION:
-            socketDescriptor = ((connection_t*)ev->owner.ptr)->fd;
+            connection_t* p_currentConnection = p_eventStruct->owner.ptr;
+
+
+            if (p_currentConnection->handle.type == CONN_TYPE_TCP)
+            {
+                socketDescriptor = p_currentConnection->handle.data.fd;
+
+                if ((p_eventStruct->write == true)
+                    && (((win_connection_t*)p_currentConnection)->writable
+                        == true))
+                {
+                    p_eventStruct->enabled = true;
+
+
+                    p_eventStruct->handler(p_eventStruct);
+
+
+                    return JK_OK;
+                }
+                else if (p_eventStruct->write == true)
+                {
+                    networkEventsToRegister = FD_WRITE | FD_CLOSE;
+                }
+                else
+                {
+                    networkEventsToRegister = FD_READ | FD_CLOSE;
+                }
+
+
+                return wsaeventselect_tcp_enable_event(
+                    p_eventStruct,
+                    socketDescriptor,
+                    networkEventsToRegister
+                );
+            }
+            else if (p_currentConnection->handle.type == CONN_TYPE_UDP)
+            {
+                return udp_enable_event(p_eventStruct, p_currentConnection);
+            }
+            else
+            {
+                PANIC("bad connection type");
+            }
+
+
             break;
         default:
             PANIC("unknown event owner");
     }
 
 
-    int64_t eventIndex = GetEventIndex(socketDescriptor);
+    return JK_OK;
+}
 
+static int64_t wsaeventselect_tcp_disable_event(
+    event_t* p_eventStruct,
+    SOCKET   socketDescriptor
+)
+{
+    logger_t* logger = current_logger;
+
+    int64_t eventIndex = GetEventIndex(socketDescriptor);
     if (eventIndex == JK_ERROR)
     {
-        log_perror("wsaeventselect_disable_event: Couldn't find socket index");
+        log_perror(
+            "wsaeventselect_tcp_disable_event: Couldn't find socket index"
+        );
         return JK_ERROR;
     }
 
 
-    ev->enabled = false;
+    p_eventStruct->enabled = false;
 
 
-    connectionsInformation->events[eventIndex] = ev;
+    connectionsInformation->events[eventIndex] = p_eventStruct;
 
 
     return JK_OK;
 }
 
-static int64_t wsaeventselect_add_conn(connection_t* conn)
+static int64_t wsaeventselect_disable_event(event_t* p_eventStruct)
+{
+    logger_t* logger = current_logger;
+
+    SOCKET socketDescriptor = INVALID_SOCKET;
+
+
+    CHECK_INVARIANT(
+        p_eventStruct->enabled == true,
+        "event is already disabled"
+    );
+
+
+    CHECK_INVARIANT(p_eventStruct->owner.ptr != NULL, "event owner is NULL");
+
+
+    switch (p_eventStruct->owner.tag)
+    {
+        case EV_OWNER_LISTENER:
+            socketDescriptor = ((listener_t*)p_eventStruct->owner.ptr)->fd;
+            break;
+        case EV_OWNER_CONNECTION:
+            connection_t* p_currentConnection = p_eventStruct->owner.ptr;
+
+
+            if (p_currentConnection->handle.type == CONN_TYPE_TCP)
+            {
+                socketDescriptor = p_currentConnection->handle.data.fd;
+
+
+                return wsaeventselect_tcp_disable_event(
+                    p_eventStruct,
+                    socketDescriptor
+                );
+            }
+            else if (p_currentConnection->handle.type == CONN_TYPE_UDP)
+            {
+                return udp_disable_event(p_eventStruct, p_currentConnection);
+            }
+            else
+            {
+                PANIC("bad connection type");
+            }
+
+
+            break;
+        default:
+            PANIC("unknown event owner");
+    }
+
+
+    return JK_OK;
+}
+
+static int64_t wsaeventselect_add_conn(connection_t* p_connectionStruct)
 {
     logger_t* logger = current_logger;
 
     int64_t eventIndex              = 0;
     SOCKET  socketDescriptor        = INVALID_SOCKET;
-    long    networkEventsToRegister = 0;
 
     WSAEVENT wsaEvent;
 
@@ -433,8 +583,21 @@ static int64_t wsaeventselect_add_conn(connection_t* conn)
     };
 
 
-    eventIndex = GetEventIndex(socketDescriptor);
+    if (p_connectionStruct->handle.type == CONN_TYPE_TCP)
+    {
+        socketDescriptor = p_connectionStruct->handle.data.fd;
+    }
+    else if (p_connectionStruct->handle.type == CONN_TYPE_UDP)
+    {
+        PANIC("unimplemented");
+    }
+    else
+    {
+        PANIC("bad connection type");
+    }
 
+
+    eventIndex = GetEventIndex(socketDescriptor);
     if (eventIndex == JK_ERROR)
     {
         wsaEvent = WSACreateEvent();
@@ -457,7 +620,7 @@ static int64_t wsaeventselect_add_conn(connection_t* conn)
             wsaEvent;
 
         connectionsInformation->events[connectionsInformation->count] =
-            conn->write;
+            p_connectionStruct->write;
 
         connectionsInformation->count++;
     }
@@ -471,11 +634,25 @@ static int64_t wsaeventselect_add_conn(connection_t* conn)
     return JK_OK;
 }
 
-static int64_t wsaeventselect_del_conn(connection_t* conn)
+static int64_t wsaeventselect_del_conn(connection_t* p_connectionStruct)
 {
     logger_t* logger = current_logger;
 
-    SOCKET socketDescriptor = conn->fd;
+    SOCKET socketDescriptor = INVALID_SOCKET;
+
+
+    if (p_connectionStruct->handle.type == CONN_TYPE_TCP)
+    {
+        socketDescriptor = p_connectionStruct->handle.data.fd;
+    }
+    else if (p_connectionStruct->handle.type == CONN_TYPE_UDP)
+    {
+        PANIC("unimplemented");
+    }
+    else
+    {
+        PANIC("bad connection type");
+    }
 
 
     int64_t eventIndex = GetEventIndex(socketDescriptor);
@@ -580,7 +757,12 @@ static int64_t wsaeventselect_process_events()
             socketDescriptor = ((listener_t*)p_currentEvent->owner.ptr)->fd;
             break;
         case EV_OWNER_CONNECTION:
-            socketDescriptor = ((connection_t*)p_currentEvent->owner.ptr)->fd;
+            connection_t* p_currentConnection = p_currentEvent->owner.ptr;
+            socketDescriptor = p_currentConnection->handle.data.fd;
+            break;
+        case EV_OWNER_USOCK:
+            udp_socket_t* p_currentUdpSocket = p_currentEvent->owner.ptr;
+            socketDescriptor                 = p_currentUdpSocket->fd;
             break;
         default:
             PANIC("unknown event owner");
@@ -644,6 +826,18 @@ static int64_t wsaeventselect_process_events()
 
         errno = networkEvents.iErrorCode[FD_WRITE_BIT];
     }
+    else if ((networkEvents.lNetworkEvents & FD_READ)
+             && (p_currentEvent->owner.tag == EV_OWNER_USOCK))
+    {
+        udp_socket_t* p_currentUdpSocket = p_currentEvent->owner.ptr;
+        p_currentUdpSocket->readable     = true;
+    }
+    else if ((networkEvents.lNetworkEvents & FD_WRITE)
+             && (p_currentEvent->owner.tag == EV_OWNER_USOCK))
+    {
+        udp_socket_t* p_currentUdpSocket = p_currentEvent->owner.ptr;
+        p_currentUdpSocket->writable     = true;
+    }
 
 
     CHECK_INVARIANT(p_currentEvent->handler != NULL, "event handler is NULL");
@@ -663,7 +857,8 @@ static int64_t GetEventIndex(SOCKET socketDescriptor)
         win_connection_t* currentConnection =
             (connectionsInformation->events[eventIndex])->owner.ptr;
 
-        if (currentConnection->connection.fd == socketDescriptor)
+        if ((SOCKET)currentConnection->connection.handle.data.fd
+            == socketDescriptor)
         {
             return eventIndex;
         }
@@ -671,4 +866,16 @@ static int64_t GetEventIndex(SOCKET socketDescriptor)
 
 
     return JK_ERROR;
+}
+
+static int64_t wsaeventselect_add_udp_sock(udp_socket_t* p_socketStruct)
+{
+    p_socketStruct = NULL;
+    return JK_OK;
+}
+
+static int64_t wsaeventselect_del_udp_sock(udp_socket_t* p_socketStruct)
+{
+    p_socketStruct = NULL;
+    return JK_OK;
 }

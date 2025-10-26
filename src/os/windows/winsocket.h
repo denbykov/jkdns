@@ -24,4 +24,3 @@ typedef struct
 
 int64_t WinsockInit();
 int64_t WinsockCleanup();
-int64_t GetEventIndex(SOCKET socketDescriptor);

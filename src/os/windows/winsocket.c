@@ -2,21 +2,25 @@
 
 #include "os/windows/winsocket.h"
 
-
 connection_t* allocate_connection()
 {
+    logger_t* logger = current_logger;
+
     win_connection_t* connection;
 
 
     connection = calloc(1, sizeof(win_connection_t));
+    if (connection == NULL)
+    {
+        log_perror("WSA Startup failed with error %d", errno);
+    }
 
 
     connection->writable = true;
 
 
-    return connection;
+    return (connection_t*)connection;
 }
-
 
 int64_t WinsockInit()
 {
