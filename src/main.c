@@ -1,13 +1,14 @@
-#include "core/decl.h"
-#include <core/ev_backend.h>
-#include <core/event.h>
-#include <core/listener.h>
-#include <logger/logger.h>
-
-#include <settings/settings.h>
-
 #include <stdlib.h>
 #include <stdbool.h>
+
+#include "core/decl.h"
+#include "core/ev_backend.h"
+#include "core/event.h"
+#include "core/listener.h"
+#include "core/udp_socket.h"
+#include "settings/settings.h"
+#include "logger/logger.h"
+#include "udp_socket/udp_socket.h"
 
 
 #ifdef _WIN32
@@ -64,13 +65,14 @@ int main(int argc, char* argv[])
         return JK_ERROR;
     }
 
+    // Register listener
     listener_t* l = make_listener();
     if (l == NULL || l->error == true)
     {
         release_listener(l);
         return JK_ERROR;
     }
-
+    
     event_t ev;
     init_event(&ev);
     ev.owner.ptr = l;
@@ -79,13 +81,32 @@ int main(int argc, char* argv[])
     ev.handler   = accept_handler;
 
     l->accept = &ev;
-
+    
     ev_backend->add_event(&ev);
 
-    for (;;)
-    {
+    // Register udp socket
+    udp_socket_t* usock = make_udp_socket();
+    if (usock == NULL || usock->error == true) {
+        release_udp_socket(usock);
+        return -1;
+    }
+
+    event_t uev;
+    init_event(&uev);
+    uev.owner.ptr = usock;
+    uev.owner.tag = EV_OWNER_USOCK;
+    uev.write = false;
+    uev.handler = udp_ev_handler;
+    usock->ev = &uev;
+    
+    ev_backend->add_udp_sock(usock);
+    
+    // Mainloop
+    for (;;) {
         ev_backend->process_events();
     }
+    
+    ev_backend->del_udp_sock(usock);
 
     free(settings);
     release_listener(l);

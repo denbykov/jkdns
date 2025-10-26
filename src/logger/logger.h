@@ -1,8 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdlib.h>
 
-#include <settings/settings.h>
+#include "settings/settings.h"
 
 #define LOG_TRACE   0
 #define LOG_DEBUG   1

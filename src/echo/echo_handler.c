@@ -1,14 +1,14 @@
 #include "echo_handler.h"
-#include "session/tcp.h"
-#include <logger/logger.h>
+#include "core/errors.h"
+#include "logger/logger.h"
 
-#include <core/decl.h>
-#include <core/event.h>
-#include <core/net.h>
-#include <core/buffer.h>
-#include <core/connection.h>
-#include <core/ev_backend.h>
-#include <session/tcp.h>
+#include "core/decl.h"
+#include "core/event.h"
+#include "core/net.h"
+#include "core/buffer.h"
+#include "core/connection.h"
+#include "core/ev_backend.h"
+#include "connection/connection.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -83,6 +83,10 @@ void handle_echo_read(event_t *ev) {
 
     buf->taken += read;
 
+    // dirty trick to facilitate logging
+    buf->data[buf->taken] = 0;
+    log_trace("handle_echo_read.msg: %s", buf->data);
+
     ev_backend->disable_event(conn->read);
     ev_backend->enable_event(conn->write);
 }
@@ -93,14 +97,22 @@ void handle_echo_write(event_t *ev) {
     connection_t* conn = ev->owner.ptr;
     buffer_t* buf = (buffer_t*)conn->data;
 
+    // dirty trick to facilitate logging
+    buf->data[buf->taken] = 0;
+    log_trace("handle_echo_write.msg: %s", buf->data);
+
     ssize_t sent = send_buf(conn, buf->data, buf->taken);
+
+    if (sent == JK_WOULD_BLOCK) {
+        return;
+    }
 
     if (sent == 0) {
         log_trace("peer closed the connection");
         return stop_echo(ev);
     }
 
-    if (sent == JK_ERROR) {
+    if (sent < 0) {
         log_perror("do_echo_write");
         return stop_echo(ev);
     }
@@ -119,7 +131,7 @@ void handle_echo_write(event_t *ev) {
 void stop_echo(event_t* ev) {
     logger_t *logger = current_logger;
 
-    log_trace("stopping proxy echo");
+    log_trace("stopping echo");
 
     connection_t* conn = ev->owner.ptr;
 
