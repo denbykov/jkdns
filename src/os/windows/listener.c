@@ -1,15 +1,15 @@
-#include <logger/logger.h>
-#include <core/decl.h>
-#include <core/listener.h>
-#include <core/event.h>
-#include <session/tcp.h>
-#include <settings/settings.h>
-
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <fcntl.h>
+
+#include "core/decl.h"
+#include "core/listener.h"
+#include "core/event.h"
+#include "connection/connection.h"
+#include "logger/logger.h"
+#include "settings/settings.h"
 
 #include "os/windows/winsocket.h"
 

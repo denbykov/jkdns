@@ -1,13 +1,12 @@
-#include "core/decl.h"
-#include "core/errors.h"
-
-#include <core/net.h>
-#include <core/connection.h>
-#include <core/buffer.h>
-#include <logger/logger.h>
-
 #include <stdint.h>
 #include <errno.h>
+
+#include "core/buffer.h"
+#include "core/connection.h"
+#include "core/decl.h"
+#include "core/errors.h"
+#include "core/net.h"
+#include "logger/logger.h"
 
 #include "os/windows/winsocket.h"
 

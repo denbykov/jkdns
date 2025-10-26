@@ -1,14 +1,16 @@
 #pragma once
 
+#include <stdint.h>
+
+#include "decl.h"
+
 #ifdef _WIN32
-    #include "os/windows/winsocket.h"
+    #include <winsock2.h>
+    #include <in6addr.h>
 #else
     #include <netinet/in.h> // for in_addr/in6_addr, which should be binary compatible with win
 #endif
 
-#include <stdint.h>
-
-#include "decl.h"
 
 struct address_s
 {

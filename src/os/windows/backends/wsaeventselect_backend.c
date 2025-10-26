@@ -1,16 +1,18 @@
-#include "core/errors.h"
-#include <core/decl.h>
-#include <core/event.h>
-#include <core/ev_backend.h>
-#include <core/listener.h>
-#include <core/connection.h>
 #include <errno.h>
-#include <logger/logger.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "core/connection.h"
+#include "core/decl.h"
+#include "core/errors.h"
+#include "core/event.h"
+#include "core/ev_backend.h"
+#include "core/listener.h"
+#include "logger/logger.h"
+
 #include "os/windows/winsocket.h"
+
 
 typedef struct
 {
