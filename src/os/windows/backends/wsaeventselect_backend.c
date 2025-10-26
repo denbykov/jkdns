@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <os/windows/winsocket.h>
+#include "os/windows/winsocket.h"
 
 typedef struct
 {

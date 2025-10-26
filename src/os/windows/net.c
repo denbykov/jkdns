@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <errno.h>
 
-#include <os/windows/winsocket.h>
+#include "os/windows/winsocket.h"
 
 ssize_t recv_buf(connection_t* conn, uint8_t* buf, size_t count)
 {
