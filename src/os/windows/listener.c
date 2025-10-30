@@ -4,10 +4,10 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "core/decl.h"
-#include "core/listener.h"
-#include "core/event.h"
 #include "connection/connection.h"
+#include "core/decl.h"
+#include "core/event.h"
+#include "core/listener.h"
 #include "logger/logger.h"
 #include "settings/settings.h"
 

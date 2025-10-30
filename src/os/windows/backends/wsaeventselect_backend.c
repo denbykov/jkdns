@@ -49,6 +49,8 @@ ev_backend_t wsaeventselect_backend = {
     .disable_event  = wsaeventselect_disable_event,
     .add_conn       = wsaeventselect_add_conn,
     .del_conn       = wsaeventselect_del_conn,
+    .add_udp_sock   = wsaeventselect_add_udp_sock,
+    .del_udp_sock   = wsaeventselect_del_udp_sock,
     .process_events = wsaeventselect_process_events
 };
 
@@ -568,8 +570,8 @@ static int64_t wsaeventselect_add_conn(connection_t* p_connectionStruct)
 {
     logger_t* logger = current_logger;
 
-    int64_t eventIndex              = 0;
-    SOCKET  socketDescriptor        = INVALID_SOCKET;
+    int64_t eventIndex       = 0;
+    SOCKET  socketDescriptor = INVALID_SOCKET;
 
     WSAEVENT wsaEvent;
 
@@ -849,6 +851,156 @@ static int64_t wsaeventselect_process_events()
     return JK_OK;
 }
 
+static int64_t wsaeventselect_add_udp_sock(udp_socket_t* p_socketStruct)
+{
+    logger_t* logger = current_logger;
+
+    event_t* p_currentEvent   = p_socketStruct->ev;
+    SOCKET   socketDescriptor = p_socketStruct->fd;
+    int64_t  eventIndex       = 0;
+    WSAEVENT wsaEvent;
+    long     networkEventsToRegister = 0;
+
+
+    CHECK_INVARIANT(p_currentEvent != false, "event is NULL");
+    CHECK_INVARIANT(
+        p_currentEvent->enabled == false,
+        "event is already enabled"
+    );
+
+
+    eventIndex = GetEventIndex(socketDescriptor);
+    if (eventIndex == JK_ERROR)
+    {
+        wsaEvent = WSACreateEvent();
+
+        if (wsaEvent == WSA_INVALID_EVENT)
+        {
+            log_perror(
+                "wsaeventselect_add_udp_sock: Event creation for socket "
+                "failed with error %d",
+                WSAGetLastError()
+            );
+
+
+            return JK_ERROR;
+        }
+
+
+        connectionsInformation->wsaEvents[connectionsInformation->count] =
+            wsaEvent;
+
+        connectionsInformation->events[connectionsInformation->count] =
+            p_currentEvent;
+
+        connectionsInformation->count++;
+    }
+    else
+    {
+        wsaEvent =
+            connectionsInformation->wsaEvents[connectionsInformation->count];
+    }
+
+
+    if (p_currentEvent->write == true)
+    {
+        networkEventsToRegister = FD_WRITE | FD_CLOSE;
+    }
+    else
+    {
+        networkEventsToRegister = FD_READ | FD_CLOSE;
+    }
+
+
+    int64_t registerEventResult =
+        WSAEventSelect(socketDescriptor, wsaEvent, networkEventsToRegister);
+
+    if (registerEventResult == SOCKET_ERROR)
+    {
+        log_perror(
+            "wsaeventselect_add_udp_sock: Registering new event failed with "
+            "error %d",
+            WSAGetLastError()
+        );
+
+
+        return JK_ERROR;
+    }
+    else
+    {
+        log_info("wsaeventselect_add_udp_sock: New event was registered!");
+    }
+
+
+    p_currentEvent->enabled = true;
+
+
+    connectionsInformation->events[connectionsInformation->count - 1] =
+        p_currentEvent;
+
+
+    return JK_OK;
+}
+
+static int64_t wsaeventselect_del_udp_sock(udp_socket_t* p_socketStruct)
+{
+    logger_t* logger = current_logger;
+
+    SOCKET   socketDescriptor = p_socketStruct->fd;
+
+
+    int64_t eventIndex = GetEventIndex(socketDescriptor);
+
+    if (eventIndex == JK_ERROR)
+    {
+        log_perror("wsaeventselect_del_udp_sock: Couldn't find socket index");
+        return JK_ERROR;
+    }
+
+
+    if (connectionsInformation->wsaEvents[eventIndex] != NULL)
+    {
+        if (WSACloseEvent(connectionsInformation->wsaEvents[eventIndex])
+            == TRUE)
+        {
+            log_info(
+                "wsaeventselect_del_udp_sock: WSACloseEvent() was successful!"
+            );
+        }
+        else
+        {
+            log_perror("wsaeventselect_del_udp_sock: WSACloseEvent() failed!");
+        }
+    }
+
+
+    for (int64_t elementIndex = eventIndex;
+         elementIndex < connectionsInformation->count;
+         elementIndex++)
+    {
+        if (elementIndex == (connectionsInformation->count - 1))
+        {
+            connectionsInformation->wsaEvents[elementIndex] = NULL;
+
+            connectionsInformation->events[elementIndex] = NULL;
+        }
+        else
+        {
+            connectionsInformation->wsaEvents[elementIndex] =
+                connectionsInformation->wsaEvents[elementIndex + 1];
+
+            connectionsInformation->events[elementIndex] =
+                connectionsInformation->events[elementIndex + 1];
+        }
+    }
+
+
+    p_socketStruct->ev->enabled = false;
+    connectionsInformation->count--;
+    return JK_OK;
+}
+
+
 static int64_t GetEventIndex(SOCKET socketDescriptor)
 {
     for (int64_t eventIndex = 0; eventIndex < connectionsInformation->count;
@@ -866,16 +1018,4 @@ static int64_t GetEventIndex(SOCKET socketDescriptor)
 
 
     return JK_ERROR;
-}
-
-static int64_t wsaeventselect_add_udp_sock(udp_socket_t* p_socketStruct)
-{
-    p_socketStruct = NULL;
-    return JK_OK;
-}
-
-static int64_t wsaeventselect_del_udp_sock(udp_socket_t* p_socketStruct)
-{
-    p_socketStruct = NULL;
-    return JK_OK;
 }

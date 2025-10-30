@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 #endif
 
 
-    if (ev_backend->init() == -1)
+    if (ev_backend->init() == JK_ERROR)
     {
         return JK_ERROR;
     }
@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
     udp_socket_t* usock = make_udp_socket();
     if (usock == NULL || usock->error == true) {
         release_udp_socket(usock);
-        return -1;
+        return JK_ERROR;
     }
 
     event_t uev;
