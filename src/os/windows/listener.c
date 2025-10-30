@@ -24,90 +24,96 @@ listener_t* make_listener()
     }
 
 
-    settings_t* s      = current_settings;
-    logger_t*   logger = current_logger;
+    settings_t* p_currentSettings = current_settings;
+    logger_t*   logger            = current_logger;
+
+    struct sockaddr_in serverSockaddr  = {0};
+    SOCKET             listeningSocket = INVALID_SOCKET;
+    BOOL               optVal          = true;
 
 
-    listener_t* l = calloc(1, sizeof(listener_t));
-
-    if (l == NULL)
+    listener_t* p_listenerStruct = calloc(1, sizeof(listener_t));
+    if (p_listenerStruct == NULL)
     {
         log_perror("make_listener.allocate_event_list");
         return NULL;
     }
 
 
-    l->accept = NULL;
-    l->fd     = -1;
+    p_listenerStruct->accept = NULL;
+    p_listenerStruct->fd     = INVALID_SOCKET;
 
 
-    SOCKET fd = INVALID_SOCKET;
+    serverSockaddr.sin_family = AF_INET;
+    serverSockaddr.sin_port  = htons(p_currentSettings->port);
+    serverSockaddr.sin_addr.s_addr = INADDR_ANY;
 
 
-    SOCKADDR_IN server_sockaddr = {
-        .sin_family      = AF_INET,
-        .sin_port        = htons(s->port),
-        .sin_addr.s_addr = INADDR_ANY
-    };
-
-    memset(&(server_sockaddr.sin_zero), 0, 8);
-
-
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (fd == INVALID_SOCKET)
+    listeningSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (listeningSocket == INVALID_SOCKET)
     {
         log_perror("make_listener.socket");
-        l->error = true;
-        return l;
+        p_listenerStruct->error = true;
+        return p_listenerStruct;
     }
 
 
-    /*
-    bool opt = true;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    if (setsockopt(
+            listeningSocket,
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &optVal,
+            sizeof(optVal)
+        ))
     {
         log_perror("make_listener.setsockopt");
 
 
-        closesocket(fd);
-        l->error = true;
-        return l;
+        closesocket(listeningSocket);
+
+
+        p_listenerStruct->error = true;
+
+
+        return p_listenerStruct;
     }
-    */
 
 
-    if (bind(fd, (struct sockaddr*)&server_sockaddr, sizeof(server_sockaddr))
+    if (bind(
+            listeningSocket,
+            (struct sockaddr*)&serverSockaddr,
+            sizeof(serverSockaddr)
+        )
         != 0)
     {
         log_perror("make_listener.bind");
 
 
-        closesocket(fd);
-        l->error = true;
-        return l;
+        closesocket(listeningSocket);
+
+
+        p_listenerStruct->error = true;
+
+
+        return p_listenerStruct;
     }
 
 
-    l->fd    = fd;
-    l->bound = true;
+    p_listenerStruct->fd    = listeningSocket;
+    p_listenerStruct->bound = true;
 
 
-    if (listen(fd, LISTEN_QUEUE) != 0)
+    if (listen(listeningSocket, LISTEN_QUEUE) != 0)
     {
         log_perror("make_listener.listen");
-        l->error = true;
-        return l;
+        p_listenerStruct->error = true;
+        return p_listenerStruct;
     }
 
 
-    l->listening = true;
-
-
-    l->non_blocking = true;
-
-
-    return l;
+    p_listenerStruct->listening = true;
+    p_listenerStruct->non_blocking = true;
+    return p_listenerStruct;
 }
 
 void release_listener(listener_t* l)
@@ -121,7 +127,7 @@ void release_listener(listener_t* l)
     WinsockCleanup();
 }
 
-void accept_handler(event_t* ev)
+void accept_handler(event_t* p_eventStruct)
 {
     SOCKET   socketDescriptor = INVALID_SOCKET;
     SOCKADDR remoteAddress;
@@ -130,13 +136,14 @@ void accept_handler(event_t* ev)
     logger_t* logger = current_logger;
 
 
-    CHECK_INVARIANT(ev->owner.ptr != NULL, "event owner is NULL");
+    CHECK_INVARIANT(p_eventStruct->owner.ptr != NULL, "event owner is NULL");
 
 
-    switch (ev->owner.tag)
+    switch (p_eventStruct->owner.tag)
     {
         case EV_OWNER_LISTENER:
-            socketDescriptor = ((listener_t*)ev->owner.ptr)->fd; // NOLINT
+            socketDescriptor =
+                ((listener_t*)p_eventStruct->owner.ptr)->fd; // NOLINT
             break;
         default:
             PANIC("unexpected event owner");
@@ -165,5 +172,6 @@ void accept_handler(event_t* ev)
         // SocketResolveAddress(&remoteAddress, remoteAddressLength);
     }
 
-    handle_new_connection(connectionSocket);
+
+    handle_new_tcp_connection(connectionSocket);
 }

@@ -6,11 +6,19 @@
 #include "core/decl.h"
 #include "core/errors.h"
 #include "core/net.h"
+#include "core/udp_socket.h"
 #include "logger/logger.h"
 
 #include "os/windows/winsocket.h"
 
-ssize_t recv_buf(connection_t* conn, uint8_t* buf, size_t count)
+
+static ssize_t tcp_recv_buf(connection_t* conn, uint8_t* buf, size_t count);
+static ssize_t udp_recv_buf(connection_t* conn, uint8_t* buf, size_t count);
+static ssize_t tcp_send_buf(connection_t* conn, uint8_t* buf, size_t count);
+static ssize_t udp_send_buf(connection_t* conn, uint8_t* buf, size_t count);
+
+
+ssize_t tcp_recv_buf(connection_t* conn, uint8_t* buf, size_t count)
 {
     logger_t* logger = current_logger;
 
@@ -57,7 +65,7 @@ ssize_t recv_buf(connection_t* conn, uint8_t* buf, size_t count)
     return read;
 }
 
-ssize_t send_buf(connection_t* conn, uint8_t* buf, size_t count)
+ssize_t tcp_send_buf(connection_t* conn, uint8_t* buf, size_t count)
 {
     logger_t* logger = current_logger;
 
