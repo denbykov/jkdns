@@ -425,3 +425,6 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /CMakePresets.json
+
+# Log files
+log*.txt
