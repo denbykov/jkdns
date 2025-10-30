@@ -2,6 +2,7 @@
 
 #include "os/windows/winsocket.h"
 
+
 connection_t* allocate_connection()
 {
     logger_t* logger = current_logger;
@@ -13,6 +14,7 @@ connection_t* allocate_connection()
     if (connection == NULL)
     {
         log_perror("WSA Startup failed with error %d", errno);
+        return NULL;
     }
 
 

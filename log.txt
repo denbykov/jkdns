@@ -1,0 +1,59 @@
+2025-10-30 09:33:28 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:33:28 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:33:28 [INFO] wsaeventselect_tcp_add_event: New event was registered!
+2025-10-30 09:33:28 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:33:28 [INFO] wsaeventselect_add_udp_sock: New event was registered!
+2025-10-30 09:33:49 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:33:49 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:34:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:34:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:34:44 [INFO] wsaeventselect_tcp_add_event: New event was registered!
+2025-10-30 09:34:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:34:44 [INFO] wsaeventselect_add_udp_sock: New event was registered!
+2025-10-30 09:35:10 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:35:10 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:37:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:37:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:37:44 [INFO] wsaeventselect_tcp_add_event: New event was registered!
+2025-10-30 09:37:44 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:37:44 [INFO] wsaeventselect_add_udp_sock: New event was registered!
+2025-10-30 09:37:52 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:37:52 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:38:38 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:38:38 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:38:47 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:38:47 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:39:04 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:39:04 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:39:06 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:39:06 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:39:32 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:39:32 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:39:35 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:39:35 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:39:40 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:39:40 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:41:25 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:41:25 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:41:25 [INFO] wsaeventselect_tcp_add_event: New event was registered!
+2025-10-30 09:41:25 [INFO] Winsock.dll of version 2.2 was loaded
+2025-10-30 09:41:25 [INFO] wsaeventselect_add_udp_sock: New event was registered!
+2025-10-30 09:41:32 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:41:32 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:41:40 [INFO] wsaeventselect_process_events: Socket 0 signalled back!
+2025-10-30 09:41:40 [INFO] wsaeventselect_process_events: Enumerated network events for socket 0!
+2025-10-30 09:41:40 [INFO] accept_handler.accept: Connection accept was successfull.
+2025-10-30 09:41:40 [INFO] wsaeventselect_tcp_add_event: New event was registered!
+2025-10-30 09:41:41 [INFO] wsaeventselect_process_events: Socket 2 signalled back!
+2025-10-30 09:41:41 [INFO] wsaeventselect_process_events: Enumerated network events for socket 2!
+2025-10-30 09:41:41 [INFO] wsaeventselect_tcp_enable_event: New event was registered!
+2025-10-30 09:41:43 [INFO] wsaeventselect_process_events: Socket 2 signalled back!
+2025-10-30 09:41:43 [INFO] wsaeventselect_process_events: Enumerated network events for socket 2!
+2025-10-30 09:41:43 [INFO] wsaeventselect_tcp_enable_event: New event was registered!
+2025-10-30 09:41:49 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:41:49 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!
+2025-10-30 09:41:51 [INFO] wsaeventselect_process_events: Socket 2 signalled back!
+2025-10-30 09:41:51 [INFO] wsaeventselect_process_events: Enumerated network events for socket 2!
+2025-10-30 09:41:51 [INFO] wsaeventselect_del_conn: WSACloseEvent() was successful!
+2025-10-30 09:41:55 [INFO] wsaeventselect_process_events: Socket 1 signalled back!
+2025-10-30 09:41:55 [INFO] wsaeventselect_process_events: Enumerated network events for socket 1!

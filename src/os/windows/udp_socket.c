@@ -4,11 +4,11 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "connection/connection.h"
 #include "core/decl.h"
-#include "core/event.h"
-#include "core/listener.h"
+#include "core/ht.h"
+#include "core/htt.h"
 #include "core/udp_socket.h"
+#include "core/udp_wq.h"
 #include "logger/logger.h"
 #include "settings/settings.h"
 
@@ -16,6 +16,7 @@
 
 
 #define LISTEN_QUEUE 10
+
 
 udp_socket_t* make_udp_socket()
 {
@@ -158,7 +159,7 @@ void release_udp_socket(udp_socket_t* p_socketStruct)
 
     if (p_socketStruct->last_read_buf.data != NULL)
     {
-        free(sock->last_read_buf.data);
+        free(p_socketStruct->last_read_buf.data);
     }
 
 
@@ -167,17 +168,17 @@ void release_udp_socket(udp_socket_t* p_socketStruct)
 
     if (p_socketStruct->wq != NULL)
     {
-        udp_wq_destroy(sock->wq);
+        udp_wq_destroy(p_socketStruct->wq);
     }
 
 
     if (p_socketStruct->connections != NULL)
     {
-        connection_ht_destroy(sock->connections);
+        connection_ht_destroy(p_socketStruct->connections);
     }
 
 
-    free(sock);
+    free(p_socketStruct);
 
 
     WinsockCleanup();

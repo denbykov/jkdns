@@ -16,6 +16,7 @@
 
 #define LISTEN_QUEUE 10
 
+
 listener_t* make_listener()
 {
     if (WinsockInit() != JK_OK)
@@ -44,8 +45,8 @@ listener_t* make_listener()
     p_listenerStruct->fd     = INVALID_SOCKET;
 
 
-    serverSockaddr.sin_family = AF_INET;
-    serverSockaddr.sin_port  = htons(p_currentSettings->port);
+    serverSockaddr.sin_family      = AF_INET;
+    serverSockaddr.sin_port        = htons(p_currentSettings->port);
     serverSockaddr.sin_addr.s_addr = INADDR_ANY;
 
 
@@ -111,7 +112,7 @@ listener_t* make_listener()
     }
 
 
-    p_listenerStruct->listening = true;
+    p_listenerStruct->listening    = true;
     p_listenerStruct->non_blocking = true;
     return p_listenerStruct;
 }
@@ -129,11 +130,11 @@ void release_listener(listener_t* l)
 
 void accept_handler(event_t* p_eventStruct)
 {
+    logger_t* logger = current_logger;
+
     SOCKET   socketDescriptor = INVALID_SOCKET;
     SOCKADDR remoteAddress;
     int      remoteAddressLength = sizeof(remoteAddress);
-
-    logger_t* logger = current_logger;
 
 
     CHECK_INVARIANT(p_eventStruct->owner.ptr != NULL, "event owner is NULL");
@@ -152,7 +153,6 @@ void accept_handler(event_t* p_eventStruct)
 
     SOCKET connectionSocket =
         accept(socketDescriptor, &remoteAddress, &remoteAddressLength);
-
     if (connectionSocket == INVALID_SOCKET)
     {
         log_perror(
