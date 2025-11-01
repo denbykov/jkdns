@@ -59,26 +59,12 @@ AttributeMacros:
 BinPackArguments: false
 BinPackParameters: OnePerLine
 BitFieldColonSpacing: Before
-BraceWrapping:
-  AfterCaseLabel: true
-  AfterControlStatement: Always
-  AfterEnum: true
-  AfterFunction: true
-  AfterStruct: true
-  AfterUnion: true
-  AfterExternBlock: true
-  BeforeCatch: true
-  BeforeElse: true
-  BeforeWhile: true
-  IndentBraces: false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
 BreakAdjacentStringLiterals: true
 BreakAfterAttributes: Always
 BreakAfterReturnType: ExceptShortType
 BreakArrays: true
 BreakBeforeBinaryOperators: NonAssignment
-BreakBeforeBraces: Custom
+BreakBeforeBraces: Attach
 BreakBeforeConceptDeclarations: Always
 BreakBeforeInlineASMColon: OnlyMultiline
 BreakBeforeTernaryOperators: true
