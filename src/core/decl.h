@@ -1,9 +1,13 @@
 #pragma once
 
 #include <stdint.h>
-#include <unistd.h>
-
 #include "errors.h"
+
+
+#ifdef _WIN32
+typedef uint64_t ssize_t;
+#endif
+
 
 #define UDP_MSG_SIZE 512
 

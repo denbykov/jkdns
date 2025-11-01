@@ -24,21 +24,23 @@ void handle_new_tcp_connection(int64_t fd) {
     settings_t *s = current_settings;
     logger_t *logger = current_logger;
     
-    conn = calloc(1, sizeof(connection_t));
+    conn = allocate_connection();
     if (conn == NULL) {
         log_perror("handle_new_tcp_connection.calloc");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (r_event == NULL)
+    {
         log_perror("handle_new_tcp_connection.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
     
     w_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (w_event == NULL)
+    {
         log_perror("handle_new_tcp_connection.allocate_write_event");
         goto cleanup;
     }
@@ -100,14 +102,16 @@ connection_t* make_udp_connection(udp_socket_t* sock, address_t* address) {
     memcpy(&conn->address, address, sizeof(*address));
 
     r_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (r_event == NULL)
+    {
         log_perror("make_udp_connection.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
     
     w_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (w_event == NULL)
+    {
         log_perror("make_udp_connection.allocate_write_event");
         goto cleanup;
     }
@@ -169,21 +173,23 @@ connection_t *tcp_connect(const char* ip, uint16_t port) {
         goto cleanup;
     }
     
-    conn = calloc(1, sizeof(connection_t));
+    conn = allocate_connection();
     if (conn == NULL) {
         log_perror("tcp_connect.allocate_connection");
         goto cleanup;
     }
 
     r_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (r_event == NULL)
+    {
         log_perror("tcp_connect.allocate_read_event");
         goto cleanup;
     }
     init_event(r_event);
 
     w_event = calloc(1, sizeof(event_t));
-    if (conn == NULL) {
+    if (w_event == NULL)
+    {
         log_perror("tcp_connect.allocate_write_event");
         goto cleanup;
     }

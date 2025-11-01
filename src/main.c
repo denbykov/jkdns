@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include <stdbool.h>
+
 #include "core/decl.h"
 #include "core/ev_backend.h"
 #include "core/event.h"
@@ -7,21 +10,38 @@
 #include "logger/logger.h"
 #include "udp_socket/udp_socket.h"
 
-#include <stdlib.h>
-#include <stdbool.h>
+
+#ifdef _WIN32
+
+    #include "os/windows/winsocket.h"
+
+#endif
+
+
+#ifdef _WIN32
+
+extern ev_backend_t wsaeventselect_backend;
+
+#else
 
 extern ev_backend_t epoll_backend;
 
-int main(int argc, char *argv[]) {
+#endif
+
+
+int main(int argc, char* argv[])
+{
     settings_t* settings = malloc(sizeof(settings_t));
     init_settings(settings);
 
-    if (parse_args(argc, argv, settings) == -1) {
-        return -1;
+    if (parse_args(argc, argv, settings) == -1)
+    {
+        return JK_ERROR;
     }
 
-    if (validate_settings(settings) == -1) {
-        return -1;
+    if (validate_settings(settings) == -1)
+    {
+        return JK_ERROR;
     }
 
     dump_settings(stdout, settings);
@@ -29,26 +49,37 @@ int main(int argc, char *argv[]) {
 
     current_logger = init_logger(settings);
 
+#ifdef _WIN32
+
+    ev_backend = &wsaeventselect_backend;
+
+#else
+
     ev_backend = &epoll_backend;
 
-    if (ev_backend->init() == -1) {
-        return -1;
+#endif
+
+
+    if (ev_backend->init() == JK_ERROR)
+    {
+        return JK_ERROR;
     }
 
     // Register listener
     listener_t* l = make_listener();
-    if (l == NULL || l->error == true) {
+    if (l == NULL || l->error == true)
+    {
         release_listener(l);
-        return -1;
+        return JK_ERROR;
     }
     
     event_t ev;
     init_event(&ev);
     ev.owner.ptr = l;
     ev.owner.tag = EV_OWNER_LISTENER;
-    ev.write = false;
-    ev.handler = accept_handler;
-    
+    ev.write     = false;
+    ev.handler   = accept_handler;
+
     l->accept = &ev;
     
     ev_backend->add_event(&ev);
@@ -57,7 +88,7 @@ int main(int argc, char *argv[]) {
     udp_socket_t* usock = make_udp_socket();
     if (usock == NULL || usock->error == true) {
         release_udp_socket(usock);
-        return -1;
+        return JK_ERROR;
     }
 
     event_t uev;
@@ -81,5 +112,5 @@ int main(int argc, char *argv[]) {
     release_listener(l);
     ev_backend->shutdown();
 
-    return 0;
+    return JK_OK;
 }
