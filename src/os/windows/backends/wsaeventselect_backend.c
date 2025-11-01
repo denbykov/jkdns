@@ -328,7 +328,7 @@ static int64_t wsaeventselect_tcp_del_event(
         if (WSACloseEvent(connectionsInformation->wsaEvents[eventIndex])
             == TRUE)
         {
-            log_info(
+            log_trace(
                 "wsaeventselect_tcp_del_event: WSACloseEvent() was successful!"
             );
         }
@@ -494,7 +494,7 @@ static int64_t wsaeventselect_tcp_enable_event(
     }
     else
     {
-        log_info("wsaeventselect_tcp_enable_event: New event was registered!");
+        log_trace("wsaeventselect_tcp_enable_event: New event was registered!");
     }
 
 
@@ -765,7 +765,7 @@ static int64_t wsaeventselect_process_events()
         eventIndex -= WSA_WAIT_EVENT_0;
 
 
-        log_info(
+        log_trace(
             "wsaeventselect_process_events: Socket %d signalled back!",
             eventIndex
         );
@@ -811,7 +811,7 @@ static int64_t wsaeventselect_process_events()
     }
     else
     {
-        log_info(
+        log_trace(
             "wsaeventselect_process_events: Enumerated network events for "
             "socket %d!",
             eventIndex
