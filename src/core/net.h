@@ -13,4 +13,4 @@ ssize_t udp_recv(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* addr
 ssize_t udp_send(udp_socket_t *sock, uint8_t* buf, size_t count, address_t* address);
 
 int64_t open_tcp_conn(const char* ip, uint16_t port);
-void    close_tcp_conn(int64_t fd);
+void close_tcp_conn(int64_t fd);
